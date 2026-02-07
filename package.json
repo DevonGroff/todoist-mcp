@@ -1,0 +1,44 @@
+{
+  "name": "todoist-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Todoist API v2 integration",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "todoist-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevonGroff/todoist-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "todoist",
+    "model-context-protocol",
+    "ai-assistant"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DevonGroff/todoist-mcp/issues"
+  },
+  "homepage": "https://github.com/DevonGroff/todoist-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "axios": "^1.13.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

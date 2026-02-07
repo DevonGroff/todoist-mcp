@@ -1,0 +1,204 @@
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+
+const REST_API_BASE = 'https://api.todoist.com/rest/v2';
+const SYNC_API_BASE = 'https://api.todoist.com/sync/v9';
+
+const RATE_LIMIT = 450;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+interface RateLimitState {
+  requestCount: number;
+  windowStart: number;
+}
+
+class TodoistApiClient {
+  private restClient: AxiosInstance;
+  private syncClient: AxiosInstance;
+  private rateLimitState: RateLimitState;
+
+  constructor(apiToken: string) {
+    if (!apiToken) {
+      throw new Error('TODOIST_API_TOKEN is required');
+    }
+
+    this.restClient = axios.create({
+      baseURL: REST_API_BASE,
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.syncClient = axios.create({
+      baseURL: SYNC_API_BASE,
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.rateLimitState = {
+      requestCount: 0,
+      windowStart: Date.now(),
+    };
+  }
+
+  private resetRateLimitIfNeeded(): void {
+    const now = Date.now();
+    if (now - this.rateLimitState.windowStart >= RATE_WINDOW_MS) {
+      this.rateLimitState = {
+        requestCount: 0,
+        windowStart: now,
+      };
+    }
+  }
+
+  private async checkRateLimit(): Promise<void> {
+    this.resetRateLimitIfNeeded();
+    
+    if (this.rateLimitState.requestCount >= RATE_LIMIT) {
+      const waitTime = RATE_WINDOW_MS - (Date.now() - this.rateLimitState.windowStart);
+      if (waitTime > 0) {
+        await this.sleep(waitTime);
+        this.rateLimitState = {
+          requestCount: 0,
+          windowStart: Date.now(),
+        };
+      }
+    }
+    
+    this.rateLimitState.requestCount++;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        await this.checkRateLimit();
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (axios.isAxiosError(error)) {
+          const axiosError = error as AxiosError;
+          
+          if (axiosError.response?.status === 429) {
+            const retryAfter = parseInt(
+              axiosError.response.headers['retry-after'] as string || '60',
+              10
+            );
+            await this.sleep(retryAfter * 1000);
+            continue;
+          }
+          
+          if (axiosError.response?.status && axiosError.response.status >= 500) {
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+            await this.sleep(delay);
+            continue;
+          }
+          
+          throw error;
+        }
+        
+        throw error;
+      }
+    }
+    
+    throw lastError;
+  }
+
+  async get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
+    return this.withRetry(async () => {
+      const config: AxiosRequestConfig = {};
+      if (params) {
+        config.params = params;
+      }
+      const response = await this.restClient.get<T>(endpoint, config);
+      return response.data;
+    });
+  }
+
+  async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
+    return this.withRetry(async () => {
+      const response = await this.restClient.post<T>(endpoint, data);
+      return response.data;
+    });
+  }
+
+  async delete(endpoint: string): Promise<void> {
+    return this.withRetry(async () => {
+      await this.restClient.delete(endpoint);
+    });
+  }
+
+  async syncGet<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
+    return this.withRetry(async () => {
+      const config: AxiosRequestConfig = {};
+      if (params) {
+        config.params = params;
+      }
+      const response = await this.syncClient.get<T>(endpoint, config);
+      return response.data;
+    });
+  }
+
+  async syncPost<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
+    return this.withRetry(async () => {
+      const response = await this.syncClient.post<T>(endpoint, data);
+      return response.data;
+    });
+  }
+}
+
+let clientInstance: TodoistApiClient | null = null;
+
+export function getApiClient(): TodoistApiClient {
+  if (!clientInstance) {
+    const token = process.env.TODOIST_API_TOKEN;
+    if (!token) {
+      throw new Error('TODOIST_API_TOKEN environment variable is not set');
+    }
+    clientInstance = new TodoistApiClient(token);
+  }
+  return clientInstance;
+}
+
+export function createResponse<T>(success: boolean, data?: T, error?: { code: string; message: string; details?: unknown }) {
+  if (success) {
+    return { success: true, data };
+  }
+  return { success: false, error };
+}
+
+export function handleApiError(error: unknown): { code: string; message: string; details?: unknown } {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    const status = axiosError.response?.status || 500;
+    const message = axiosError.response?.data?.message || axiosError.message;
+    
+    return {
+      code: `HTTP_${status}`,
+      message,
+      details: axiosError.response?.data,
+    };
+  }
+  
+  if (error instanceof Error) {
+    return {
+      code: 'INTERNAL_ERROR',
+      message: error.message,
+    };
+  }
+  
+  return {
+    code: 'UNKNOWN_ERROR',
+    message: 'An unknown error occurred',
+  };
+}
