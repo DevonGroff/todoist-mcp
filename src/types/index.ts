@@ -23,8 +23,7 @@ export interface TodoistTask {
   order: number;
   priority: number;
   due: TodoistDue | null;
-  url: string;
-  comment_count: number;
+  url?: string;
   created_at: string;
   creator_id: string;
   assignee_id: string | null;
@@ -38,7 +37,6 @@ export interface TodoistProject {
   color: string;
   parent_id: string | null;
   order: number;
-  comment_count: number;
   is_shared: boolean;
   is_favorite: boolean;
   is_inbox_project: boolean;
@@ -87,11 +85,7 @@ export interface CompletedTask {
   meta_data: Record<string, unknown> | null;
 }
 
-export interface CompletedTasksResponse {
-  items: CompletedTask[];
-  projects: Record<string, TodoistProject>;
-  sections: Record<string, TodoistSection>;
-}
+
 
 export interface ToolResponse<T = unknown> {
   success: boolean;

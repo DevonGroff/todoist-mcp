@@ -8,20 +8,35 @@ import type {
   MoveTaskParams,
 } from '../types/index.js';
 
+interface PaginatedResponse<T> {
+  results: T[];
+  next_cursor?: string;
+}
+
 export async function listTasks(params: ListTasksParams = {}): Promise<ToolResponse<TodoistTask[]>> {
   try {
     const client = getApiClient();
-    const queryParams: Record<string, unknown> = {};
     
+    // API v1 uses separate endpoint for filters
+    if (params.filter) {
+      const queryParams: Record<string, unknown> = {
+        query: params.filter,
+      };
+      if (params.lang) queryParams.lang = params.lang;
+      
+      const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks/filter', queryParams);
+      return createResponse(true, response.results);
+    }
+    
+    // Regular task listing
+    const queryParams: Record<string, unknown> = {};
     if (params.project_id) queryParams.project_id = params.project_id;
     if (params.section_id) queryParams.section_id = params.section_id;
     if (params.label) queryParams.label = params.label;
-    if (params.filter) queryParams.filter = params.filter;
-    if (params.lang) queryParams.lang = params.lang;
     if (params.ids && params.ids.length > 0) queryParams.ids = params.ids.join(',');
     
-    const tasks = await client.get<TodoistTask[]>('/tasks', queryParams);
-    return createResponse(true, tasks);
+    const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks', queryParams);
+    return createResponse(true, response.results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
@@ -315,16 +330,13 @@ export async function searchTasks(query: string, params: Omit<ListTasksParams, '
   try {
     const client = getApiClient();
     const queryParams: Record<string, unknown> = {
-      filter: `search: ${query}`,
+      query: `search: ${query}`,
     };
     
-    if (params.project_id) queryParams.project_id = params.project_id;
-    if (params.section_id) queryParams.section_id = params.section_id;
-    if (params.label) queryParams.label = params.label;
     if (params.lang) queryParams.lang = params.lang;
     
-    const tasks = await client.get<TodoistTask[]>('/tasks', queryParams);
-    return createResponse(true, tasks);
+    const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks/filter', queryParams);
+    return createResponse(true, response.results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

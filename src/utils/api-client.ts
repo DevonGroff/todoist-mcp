@@ -1,30 +1,20 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 
-const REST_API_BASE = 'https://api.todoist.com/rest/v2';
-const SYNC_API_BASE = 'https://api.todoist.com/sync/v9';
+const API_BASE = 'https://api.todoist.com/api/v1';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
 class TodoistApiClient {
-  private restClient: AxiosInstance;
-  private syncClient: AxiosInstance;
+  private client: AxiosInstance;
 
   constructor(apiToken: string) {
     if (!apiToken) {
       throw new Error('TODOIST_API_TOKEN is required');
     }
 
-    this.restClient = axios.create({
-      baseURL: REST_API_BASE,
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    this.syncClient = axios.create({
-      baseURL: SYNC_API_BASE,
+    this.client = axios.create({
+      baseURL: API_BASE,
       headers: {
         Authorization: `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
@@ -79,39 +69,21 @@ class TodoistApiClient {
       if (params) {
         config.params = params;
       }
-      const response = await this.restClient.get<T>(endpoint, config);
+      const response = await this.client.get<T>(endpoint, config);
       return response.data;
     });
   }
 
   async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
     return this.withRetry(async () => {
-      const response = await this.restClient.post<T>(endpoint, data);
+      const response = await this.client.post<T>(endpoint, data);
       return response.data;
     });
   }
 
   async delete(endpoint: string): Promise<void> {
     return this.withRetry(async () => {
-      await this.restClient.delete(endpoint);
-    });
-  }
-
-  async syncGet<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
-    return this.withRetry(async () => {
-      const config: AxiosRequestConfig = {};
-      if (params) {
-        config.params = params;
-      }
-      const response = await this.syncClient.get<T>(endpoint, config);
-      return response.data;
-    });
-  }
-
-  async syncPost<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
-    return this.withRetry(async () => {
-      const response = await this.syncClient.post<T>(endpoint, data);
-      return response.data;
+      await this.client.delete(endpoint);
     });
   }
 }

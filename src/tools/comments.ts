@@ -3,6 +3,11 @@ import type { TodoistComment, ToolResponse, CreateCommentParams, UpdateCommentPa
 
 export type CommentPrefix = '[Research]' | '[Prompt]' | '[Context]' | '[Note]' | '[Summary]' | '';
 
+interface PaginatedResponse<T> {
+  results: T[];
+  next_cursor?: string;
+}
+
 export function formatCommentWithPrefix(content: string, prefix?: CommentPrefix): string {
   if (!prefix) return content;
   return `${prefix} ${content}`;
@@ -32,8 +37,8 @@ export async function listComments(params: { task_id?: string; project_id?: stri
     }
     
     const client = getApiClient();
-    const comments = await client.get<TodoistComment[]>('/comments', params);
-    return createResponse(true, comments);
+    const response = await client.get<PaginatedResponse<TodoistComment>>('/comments', params);
+    return createResponse(true, response.results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

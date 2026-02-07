@@ -1,6 +1,11 @@
 import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
 import type { TodoistSection, ToolResponse, CreateSectionParams } from '../types/index.js';
 
+interface PaginatedResponse<T> {
+  results: T[];
+  next_cursor?: string;
+}
+
 export async function listSections(projectId?: string): Promise<ToolResponse<TodoistSection[]>> {
   try {
     const client = getApiClient();
@@ -8,8 +13,8 @@ export async function listSections(projectId?: string): Promise<ToolResponse<Tod
     if (projectId) {
       params.project_id = projectId;
     }
-    const sections = await client.get<TodoistSection[]>('/sections', params);
-    return createResponse(true, sections);
+    const response = await client.get<PaginatedResponse<TodoistSection>>('/sections', params);
+    return createResponse(true, response.results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

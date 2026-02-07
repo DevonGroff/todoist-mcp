@@ -1,79 +1,76 @@
 import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { CompletedTask, CompletedTasksResponse, ToolResponse } from '../types/index.js';
+import type { CompletedTask, ToolResponse } from '../types/index.js';
 
 interface ListCompletedTasksParams {
   project_id?: string;
   section_id?: string;
   limit?: number;
-  offset?: number;
   since?: string;
   until?: string;
-  annotate_notes?: boolean;
+  cursor?: string;
 }
 
-interface SyncCompletedResponse {
+interface CompletedTasksApiResponse {
   items: Array<{
     id: string;
-    task_id: string;
-    content: string;
+    user_id: string;
     project_id: string;
     section_id?: string;
+    parent_id?: string;
+    content: string;
+    description?: string;
     completed_at: string;
-    meta_data?: Record<string, unknown>;
-    notes?: Array<{
-      id: string;
-      content: string;
-      posted_at: string;
-    }>;
+    added_at?: string;
+    priority?: number;
+    labels?: string[];
   }>;
-  projects: Record<string, {
-    id: string;
-    name: string;
-    color: string;
-  }>;
-  sections: Record<string, {
-    id: string;
-    name: string;
-    project_id: string;
-  }>;
+  next_cursor?: string;
+}
+
+interface CompletedTasksResult {
+  items: CompletedTask[];
+  next_cursor?: string;
 }
 
 export async function listCompletedTasks(
   params: ListCompletedTasksParams = {}
-): Promise<ToolResponse<CompletedTasksResponse>> {
+): Promise<ToolResponse<CompletedTasksResult>> {
   try {
     const client = getApiClient();
     
+    // API v1 requires since and until params (max 3 months range)
+    const now = new Date();
+    const threeMonthsAgo = new Date(now);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
     const queryParams: Record<string, unknown> = {
+      since: params.since || threeMonthsAgo.toISOString(),
+      until: params.until || now.toISOString(),
       limit: params.limit || 50,
     };
     
     if (params.project_id) queryParams.project_id = params.project_id;
     if (params.section_id) queryParams.section_id = params.section_id;
-    if (params.offset) queryParams.offset = params.offset;
-    if (params.since) queryParams.since = params.since;
-    if (params.until) queryParams.until = params.until;
-    if (params.annotate_notes) queryParams.annotate_notes = params.annotate_notes;
+    if (params.cursor) queryParams.cursor = params.cursor;
     
-    const response = await client.syncGet<SyncCompletedResponse>(
-      '/completed/get_all',
+    const response = await client.get<CompletedTasksApiResponse>(
+      '/tasks/completed/by_completion_date',
       queryParams
     );
     
     const completedTasks: CompletedTask[] = response.items.map(item => ({
       id: item.id,
-      task_id: item.task_id,
+      task_id: item.id,
       content: item.content,
       project_id: item.project_id,
       section_id: item.section_id || null,
       completed_at: item.completed_at,
-      meta_data: item.meta_data || null,
+      meta_data: null,
     }));
     
     return createResponse(true, {
       items: completedTasks,
-      projects: response.projects as unknown as CompletedTasksResponse['projects'],
-      sections: response.sections as unknown as CompletedTasksResponse['sections'],
+      next_cursor: response.next_cursor,
     });
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
