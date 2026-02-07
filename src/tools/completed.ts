@@ -60,12 +60,16 @@ export async function listCompletedTasks(
     
     const completedTasks: CompletedTask[] = response.items.map(item => ({
       id: item.id,
-      task_id: item.id,
-      content: item.content,
+      user_id: item.user_id,
       project_id: item.project_id,
       section_id: item.section_id || null,
+      parent_id: item.parent_id || null,
+      content: item.content,
+      description: item.description || '',
       completed_at: item.completed_at,
-      meta_data: null,
+      added_at: item.added_at || '',
+      priority: item.priority || 1,
+      labels: item.labels || [],
     }));
     
     return createResponse(true, {

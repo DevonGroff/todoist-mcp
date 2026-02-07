@@ -483,15 +483,14 @@ server.tool(
 
 server.tool(
   'todoist_list_completed_tasks',
-  'List completed tasks (uses Sync API) with optional filters',
+  'List completed tasks with optional filters (date range limited to 3 months)',
   {
     project_id: z.string().optional().describe('Filter by project ID'),
     section_id: z.string().optional().describe('Filter by section ID'),
     limit: z.number().optional().describe('Max tasks to return (default 50)'),
-    offset: z.number().optional().describe('Pagination offset'),
     since: z.string().optional().describe('Return tasks completed since this date (RFC3339)'),
     until: z.string().optional().describe('Return tasks completed before this date (RFC3339)'),
-    annotate_notes: z.boolean().optional().describe('Include task notes'),
+    cursor: z.string().optional().describe('Pagination cursor from previous response'),
   },
   async (params) => {
     const result = await completed.listCompletedTasks(params);

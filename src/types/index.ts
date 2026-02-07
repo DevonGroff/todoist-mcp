@@ -1,3 +1,5 @@
+// API v1 uses Sync API field naming conventions
+
 export interface TodoistDue {
   string: string;
   date: string;
@@ -11,24 +13,38 @@ export interface TodoistDuration {
   unit: 'minute' | 'day';
 }
 
+export interface TodoistDeadline {
+  date: string;
+  lang?: string;
+}
+
 export interface TodoistTask {
   id: string;
+  user_id: string;
   project_id: string;
   section_id: string | null;
+  parent_id: string | null;
   content: string;
   description: string;
-  is_completed: boolean;
   labels: string[];
-  parent_id: string | null;
-  order: number;
   priority: number;
   due: TodoistDue | null;
-  url?: string;
-  created_at: string;
-  creator_id: string;
-  assignee_id: string | null;
-  assigner_id: string | null;
+  deadline: TodoistDeadline | null;
   duration: TodoistDuration | null;
+  // API v1 specific fields (Sync API naming)
+  checked: boolean;
+  is_deleted: boolean;
+  added_at: string;
+  added_by_uid: string | null;
+  assigned_by_uid: string | null;
+  responsible_uid: string | null;
+  completed_at: string | null;
+  completed_by_uid: string | null;
+  updated_at: string;
+  child_order: number;
+  day_order: number;
+  note_count: number;
+  is_collapsed: boolean;
 }
 
 export interface TodoistProject {
@@ -36,29 +52,50 @@ export interface TodoistProject {
   name: string;
   color: string;
   parent_id: string | null;
-  order: number;
+  child_order: number;
   is_shared: boolean;
   is_favorite: boolean;
-  is_inbox_project: boolean;
-  is_team_inbox: boolean;
-  view_style: 'list' | 'board';
-  url: string;
+  inbox_project: boolean;
+  view_style: string;
+  // API v1 specific fields
+  user_id?: string;
+  can_assign_tasks?: boolean;
+  creator_uid?: string;
+  created_at?: string;
+  updated_at?: string;
+  is_archived: boolean;
+  is_deleted: boolean;
+  is_frozen?: boolean;
+  is_collapsed?: boolean;
+  default_order?: number;
+  description?: string;
 }
 
 export interface TodoistSection {
   id: string;
+  user_id: string;
   project_id: string;
-  order: number;
   name: string;
+  section_order: number;
+  // API v1 specific fields
+  added_at?: string;
+  updated_at?: string;
+  archived_at?: string | null;
+  is_archived: boolean;
+  is_deleted: boolean;
+  is_collapsed: boolean;
 }
 
 export interface TodoistComment {
   id: string;
-  task_id: string | null;
-  project_id: string | null;
+  posted_uid: string;
   posted_at: string;
   content: string;
-  attachment: Record<string, unknown> | null;
+  file_attachment: Record<string, unknown> | null;
+  // API v1 specific fields
+  uids_to_notify?: string[];
+  is_deleted: boolean;
+  reactions?: Record<string, string[]>;
 }
 
 export interface TodoistLabel {
@@ -77,12 +114,16 @@ export interface TodoistCollaborator {
 
 export interface CompletedTask {
   id: string;
-  task_id: string;
-  content: string;
+  user_id: string;
   project_id: string;
   section_id: string | null;
+  parent_id: string | null;
+  content: string;
+  description: string;
   completed_at: string;
-  meta_data: Record<string, unknown> | null;
+  added_at: string;
+  priority: number;
+  labels: string[];
 }
 
 
