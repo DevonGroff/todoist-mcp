@@ -9,15 +9,220 @@ import * as sections from './tools/sections.js';
 import * as comments from './tools/comments.js';
 import * as completed from './tools/completed.js';
 import * as labels from './tools/labels.js';
+import * as workspace from './tools/workspace.js';
 
 const server = new McpServer({
   name: 'todoist-mcp',
   version: '1.0.0',
 });
 
+// =============================================================================
+// EFFICIENCY TOOLS - Use these first to minimize API calls
+// =============================================================================
+
+server.tool(
+  'todoist_get_workspace_overview',
+  'RECOMMENDED FIRST CALL: Fetches projects, sections, and tasks in parallel (3 API calls in 1 tool call). Use this to understand the workspace structure before other operations.',
+  {
+    project_id: z.string().optional().describe('Optional: limit to specific project'),
+  },
+  async (params) => {
+    const result = await workspace.getWorkspaceOverview(params);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_create_task_with_context',
+  'Smart task creation: Creates a task and automatically finds or creates the project/section by name. Use this instead of manually creating projects/sections first.',
+  {
+    content: z.string().describe('Task content'),
+    description: z.string().optional().describe('Task description'),
+    project_name: z.string().optional().describe('Project name (will find existing or create new)'),
+    section_name: z.string().optional().describe('Section name (will find existing or create new)'),
+    project_id: z.string().optional().describe('Project ID (use instead of project_name if you have it)'),
+    section_id: z.string().optional().describe('Section ID (use instead of section_name if you have it)'),
+    labels: z.array(z.string()).optional().describe('Label names'),
+    priority: z.number().min(1).max(4).optional().describe('Priority 1-4'),
+    due_string: z.string().optional().describe('Natural language due date'),
+    due_date: z.string().optional().describe('Due date YYYY-MM-DD'),
+  },
+  async (params) => {
+    const result = await workspace.createTaskWithContext(params);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_complete_and_create_followup',
+  'Complete a task and create a follow-up task in one call. Can inherit project/section/labels from the original task.',
+  {
+    task_id: z.string().describe('Task ID to complete'),
+    followup_content: z.string().describe('Follow-up task content'),
+    followup_description: z.string().optional().describe('Follow-up description'),
+    followup_due_string: z.string().optional().describe('Follow-up due date (natural language)'),
+    followup_due_date: z.string().optional().describe('Follow-up due date YYYY-MM-DD'),
+    followup_priority: z.number().min(1).max(4).optional().describe('Follow-up priority'),
+    inherit_project: z.boolean().optional().describe('Copy project from completed task'),
+    inherit_section: z.boolean().optional().describe('Copy section from completed task'),
+    inherit_labels: z.boolean().optional().describe('Copy labels from completed task'),
+  },
+  async (params) => {
+    const result = await workspace.completeAndCreateFollowup(params);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_get_projects_by_ids',
+  'Fetch multiple projects by ID in parallel. More efficient than multiple get_project calls.',
+  {
+    project_ids: z.array(z.string()).describe('Array of project IDs'),
+  },
+  async ({ project_ids }) => {
+    const result = await workspace.getProjectsByIds(project_ids);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// =============================================================================
+// BATCH OPERATIONS - Use when operating on multiple items
+// =============================================================================
+
+server.tool(
+  'todoist_create_tasks_batch',
+  'BATCH: Create multiple tasks in parallel. Use instead of multiple create_task calls.',
+  {
+    tasks: z.array(z.object({
+      content: z.string().describe('Task content'),
+      description: z.string().optional(),
+      project_id: z.string().optional(),
+      section_id: z.string().optional(),
+      parent_id: z.string().optional(),
+      order: z.number().optional(),
+      labels: z.array(z.string()).optional(),
+      priority: z.number().min(1).max(4).optional(),
+      due_string: z.string().optional(),
+      due_date: z.string().optional(),
+      due_datetime: z.string().optional(),
+      due_lang: z.string().optional(),
+      assignee_id: z.string().optional(),
+      duration: z.number().optional(),
+      duration_unit: z.enum(['minute', 'day']).optional(),
+    })).describe('Array of task definitions'),
+  },
+  async ({ tasks: taskList }) => {
+    const result = await tasks.createTasksBatch(taskList);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_update_tasks_batch',
+  'BATCH: Update multiple tasks in parallel. Use instead of multiple update_task calls.',
+  {
+    updates: z.array(z.object({
+      task_id: z.string().describe('Task ID to update'),
+      content: z.string().optional(),
+      description: z.string().optional(),
+      labels: z.array(z.string()).optional(),
+      priority: z.number().min(1).max(4).optional(),
+      due_string: z.string().optional(),
+      due_date: z.string().optional(),
+      due_datetime: z.string().optional(),
+      due_lang: z.string().optional(),
+      assignee_id: z.string().nullable().optional(),
+      duration: z.number().nullable().optional(),
+      duration_unit: z.enum(['minute', 'day']).nullable().optional(),
+    })).describe('Array of task updates'),
+  },
+  async ({ updates }) => {
+    const result = await tasks.updateTasksBatch(updates);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_complete_tasks_batch',
+  'BATCH: Complete multiple tasks in parallel. Use instead of multiple complete_task calls.',
+  {
+    task_ids: z.array(z.string()).describe('Array of task IDs to complete'),
+  },
+  async ({ task_ids }) => {
+    const result = await tasks.completeTasksBatch(task_ids);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_reopen_tasks_batch',
+  'BATCH: Reopen multiple completed tasks in parallel.',
+  {
+    task_ids: z.array(z.string()).describe('Array of task IDs to reopen'),
+  },
+  async ({ task_ids }) => {
+    const result = await tasks.reopenTasksBatch(task_ids);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_move_tasks_batch',
+  'BATCH: Move multiple tasks in parallel. Use instead of multiple move_task calls. NOTE: Cannot change task content/properties - use update_task for that.',
+  {
+    moves: z.array(z.object({
+      task_id: z.string().describe('Task ID to move'),
+      project_id: z.string().optional().describe('Target project ID'),
+      section_id: z.string().optional().describe('Target section ID'),
+      parent_id: z.string().optional().describe('Target parent task ID'),
+    })).describe('Array of move operations'),
+  },
+  async ({ moves }) => {
+    const result = await tasks.moveTasksBatch(moves);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_create_sections_batch',
+  'BATCH: Create multiple sections in parallel.',
+  {
+    sections: z.array(z.object({
+      name: z.string().describe('Section name'),
+      project_id: z.string().describe('Project ID'),
+      order: z.number().optional().describe('Section order'),
+    })).describe('Array of section definitions'),
+  },
+  async ({ sections: sectionList }) => {
+    const result = await sections.createSectionsBatch(sectionList);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_create_comments_batch',
+  'BATCH: Create multiple comments in parallel. Useful for adding notes to multiple tasks at once.',
+  {
+    comments: z.array(z.object({
+      content: z.string().describe('Comment content'),
+      task_id: z.string().optional().describe('Task ID'),
+      project_id: z.string().optional().describe('Project ID'),
+      prefix: z.enum(['[Research]', '[Prompt]', '[Context]', '[Note]', '[Summary]', '']).optional(),
+    })).describe('Array of comment definitions'),
+  },
+  async ({ comments: commentList }) => {
+    const result = await comments.createCommentsBatch(commentList);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// =============================================================================
+// SINGLE ITEM OPERATIONS - Tasks
+// =============================================================================
+
 server.tool(
   'todoist_list_tasks',
-  'List active tasks with optional filters (project, section, label, or Todoist filter query)',
+  'List active tasks. For initial context, prefer todoist_get_workspace_overview instead.',
   {
     project_id: z.string().optional().describe('Filter by project ID'),
     section_id: z.string().optional().describe('Filter by section ID'),
@@ -145,102 +350,8 @@ server.tool(
 );
 
 server.tool(
-  'todoist_create_tasks_batch',
-  'Create multiple tasks at once (uses parallel API calls)',
-  {
-    tasks: z.array(z.object({
-      content: z.string().describe('Task content'),
-      description: z.string().optional(),
-      project_id: z.string().optional(),
-      section_id: z.string().optional(),
-      parent_id: z.string().optional(),
-      order: z.number().optional(),
-      labels: z.array(z.string()).optional(),
-      priority: z.number().min(1).max(4).optional(),
-      due_string: z.string().optional(),
-      due_date: z.string().optional(),
-      due_datetime: z.string().optional(),
-      due_lang: z.string().optional(),
-      assignee_id: z.string().optional(),
-      duration: z.number().optional(),
-      duration_unit: z.enum(['minute', 'day']).optional(),
-    })).describe('Array of task definitions'),
-  },
-  async ({ tasks: taskList }) => {
-    const result = await tasks.createTasksBatch(taskList);
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-server.tool(
-  'todoist_update_tasks_batch',
-  'Update multiple tasks at once (uses parallel API calls)',
-  {
-    updates: z.array(z.object({
-      task_id: z.string().describe('Task ID to update'),
-      content: z.string().optional().describe('New task content'),
-      description: z.string().optional().describe('New description'),
-      labels: z.array(z.string()).optional().describe('New labels (replaces existing)'),
-      priority: z.number().min(1).max(4).optional().describe('New priority'),
-      due_string: z.string().optional().describe('New due date (natural language)'),
-      due_date: z.string().optional().describe('New due date (YYYY-MM-DD)'),
-      due_datetime: z.string().optional().describe('New due datetime (RFC3339)'),
-      due_lang: z.string().optional().describe('Language for due_string'),
-      assignee_id: z.string().nullable().optional().describe('New assignee (null to unassign)'),
-      duration: z.number().nullable().optional().describe('New duration'),
-      duration_unit: z.enum(['minute', 'day']).nullable().optional().describe('New duration unit'),
-    })).describe('Array of task updates'),
-  },
-  async ({ updates }) => {
-    const result = await tasks.updateTasksBatch(updates);
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-server.tool(
-  'todoist_complete_tasks_batch',
-  'Mark multiple tasks as completed at once (uses parallel API calls)',
-  {
-    task_ids: z.array(z.string()).describe('Array of task IDs to complete'),
-  },
-  async ({ task_ids }) => {
-    const result = await tasks.completeTasksBatch(task_ids);
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-server.tool(
-  'todoist_reopen_tasks_batch',
-  'Reopen multiple completed tasks at once (uses parallel API calls)',
-  {
-    task_ids: z.array(z.string()).describe('Array of task IDs to reopen'),
-  },
-  async ({ task_ids }) => {
-    const result = await tasks.reopenTasksBatch(task_ids);
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-server.tool(
-  'todoist_move_tasks_batch',
-  'Move multiple tasks to different projects/sections/parents at once (uses parallel API calls)',
-  {
-    moves: z.array(z.object({
-      task_id: z.string().describe('Task ID to move'),
-      project_id: z.string().optional().describe('Target project ID'),
-      section_id: z.string().optional().describe('Target section ID'),
-      parent_id: z.string().optional().describe('Target parent task ID'),
-    })).describe('Array of move operations'),
-  },
-  async ({ moves }) => {
-    const result = await tasks.moveTasksBatch(moves);
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-server.tool(
   'todoist_search_tasks',
-  'Search for tasks by content using Todoist search filter',
+  'Search for tasks using Todoist filter syntax (e.g., "today", "overdue", "p1", "@label").',
   {
     query: z.string().describe('Search query'),
     project_id: z.string().optional().describe('Limit search to project'),
@@ -253,9 +364,13 @@ server.tool(
   }
 );
 
+// =============================================================================
+// SINGLE ITEM OPERATIONS - Projects
+// =============================================================================
+
 server.tool(
   'todoist_list_projects',
-  'List all projects',
+  'List all projects. For full context, prefer todoist_get_workspace_overview instead.',
   {},
   async () => {
     const result = await projects.listProjects();
@@ -319,9 +434,13 @@ server.tool(
   }
 );
 
+// =============================================================================
+// SINGLE ITEM OPERATIONS - Sections
+// =============================================================================
+
 server.tool(
   'todoist_list_sections',
-  'List all sections (optionally filtered by project)',
+  'List sections. For full context, prefer todoist_get_workspace_overview instead.',
   {
     project_id: z.string().optional().describe('Filter by project ID'),
   },
@@ -382,9 +501,13 @@ server.tool(
   }
 );
 
+// =============================================================================
+// SINGLE ITEM OPERATIONS - Comments
+// =============================================================================
+
 server.tool(
   'todoist_list_comments',
-  'List comments for a task or project',
+  'List comments for a task or project. For multiple tasks, use todoist_create_comments_batch.',
   {
     task_id: z.string().optional().describe('Task ID (required if no project_id)'),
     project_id: z.string().optional().describe('Project ID (required if no task_id)'),
@@ -481,9 +604,13 @@ server.tool(
   }
 );
 
+// =============================================================================
+// COMPLETED TASKS
+// =============================================================================
+
 server.tool(
   'todoist_list_completed_tasks',
-  'List completed tasks with optional filters (date range limited to 3 months)',
+  'List completed tasks (date range limited to 3 months). Returns different fields than active tasks.',
   {
     project_id: z.string().optional().describe('Filter by project ID'),
     section_id: z.string().optional().describe('Filter by section ID'),
@@ -510,9 +637,13 @@ server.tool(
   }
 );
 
+// =============================================================================
+// LABELS
+// =============================================================================
+
 server.tool(
   'todoist_list_labels',
-  'List all personal labels',
+  'List all personal labels.',
   {},
   async () => {
     const result = await labels.listLabels();

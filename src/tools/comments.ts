@@ -134,3 +134,45 @@ export async function addContextComment(
     prefix: '[Context]',
   });
 }
+
+export async function createCommentsBatch(
+  comments: Array<CreateCommentParams & { prefix?: CommentPrefix }>
+): Promise<ToolResponse<{
+  created: TodoistComment[];
+  failed: Array<{ index: number; error: { code: string; message: string } }>;
+}>> {
+  const created: TodoistComment[] = [];
+  const failed: Array<{ index: number; error: { code: string; message: string } }> = [];
+
+  const createPromises = comments.map(async (params, index) => {
+    try {
+      const result = await createComment(params);
+      if (result.success && result.data) {
+        return { success: true, index, data: result.data };
+      } else {
+        return {
+          success: false,
+          index,
+          error: result.error || { code: 'UNKNOWN', message: 'Unknown error' },
+        };
+      }
+    } catch (error) {
+      return { success: false, index, error: handleApiError(error) };
+    }
+  });
+
+  const outcomes = await Promise.all(createPromises);
+
+  for (const outcome of outcomes) {
+    if (outcome.success && 'data' in outcome) {
+      created.push(outcome.data as TodoistComment);
+    } else if ('error' in outcome) {
+      failed.push({
+        index: outcome.index,
+        error: outcome.error as { code: string; message: string },
+      });
+    }
+  }
+
+  return createResponse(true, { created, failed });
+}

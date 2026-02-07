@@ -62,3 +62,45 @@ export async function deleteSection(sectionId: string): Promise<ToolResponse<{ d
     return createResponse(false, undefined, handleApiError(error));
   }
 }
+
+export async function createSectionsBatch(
+  sections: CreateSectionParams[]
+): Promise<ToolResponse<{
+  created: TodoistSection[];
+  failed: Array<{ index: number; error: { code: string; message: string } }>;
+}>> {
+  const created: TodoistSection[] = [];
+  const failed: Array<{ index: number; error: { code: string; message: string } }> = [];
+
+  const createPromises = sections.map(async (params, index) => {
+    try {
+      const result = await createSection(params);
+      if (result.success && result.data) {
+        return { success: true, index, data: result.data };
+      } else {
+        return {
+          success: false,
+          index,
+          error: result.error || { code: 'UNKNOWN', message: 'Unknown error' },
+        };
+      }
+    } catch (error) {
+      return { success: false, index, error: handleApiError(error) };
+    }
+  });
+
+  const outcomes = await Promise.all(createPromises);
+
+  for (const outcome of outcomes) {
+    if (outcome.success && 'data' in outcome) {
+      created.push(outcome.data as TodoistSection);
+    } else if ('error' in outcome) {
+      failed.push({
+        index: outcome.index,
+        error: outcome.error as { code: string; message: string },
+      });
+    }
+  }
+
+  return createResponse(true, { created, failed });
+}
