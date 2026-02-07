@@ -90,13 +90,13 @@ export async function deleteTask(taskId: string): Promise<ToolResponse<{ deleted
 export async function moveTask(params: MoveTaskParams): Promise<ToolResponse<TodoistTask>> {
   try {
     const client = getApiClient();
-    const updateParams: Record<string, unknown> = {};
+    const moveParams: Record<string, unknown> = {};
     
-    if (params.project_id) updateParams.project_id = params.project_id;
-    if (params.section_id) updateParams.section_id = params.section_id;
-    if (params.parent_id !== undefined) updateParams.parent_id = params.parent_id;
+    if (params.project_id) moveParams.project_id = params.project_id;
+    if (params.section_id) moveParams.section_id = params.section_id;
+    if (params.parent_id !== undefined) moveParams.parent_id = params.parent_id;
     
-    const task = await client.post<TodoistTask>(`/tasks/${params.task_id}`, updateParams);
+    const task = await client.post<TodoistTask>(`/tasks/${params.task_id}/move`, moveParams);
     return createResponse(true, task);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
