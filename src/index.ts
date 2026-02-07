@@ -173,6 +173,72 @@ server.tool(
 );
 
 server.tool(
+  'todoist_update_tasks_batch',
+  'Update multiple tasks at once (uses parallel API calls)',
+  {
+    updates: z.array(z.object({
+      task_id: z.string().describe('Task ID to update'),
+      content: z.string().optional().describe('New task content'),
+      description: z.string().optional().describe('New description'),
+      labels: z.array(z.string()).optional().describe('New labels (replaces existing)'),
+      priority: z.number().min(1).max(4).optional().describe('New priority'),
+      due_string: z.string().optional().describe('New due date (natural language)'),
+      due_date: z.string().optional().describe('New due date (YYYY-MM-DD)'),
+      due_datetime: z.string().optional().describe('New due datetime (RFC3339)'),
+      due_lang: z.string().optional().describe('Language for due_string'),
+      assignee_id: z.string().nullable().optional().describe('New assignee (null to unassign)'),
+      duration: z.number().nullable().optional().describe('New duration'),
+      duration_unit: z.enum(['minute', 'day']).nullable().optional().describe('New duration unit'),
+    })).describe('Array of task updates'),
+  },
+  async ({ updates }) => {
+    const result = await tasks.updateTasksBatch(updates);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_complete_tasks_batch',
+  'Mark multiple tasks as completed at once (uses parallel API calls)',
+  {
+    task_ids: z.array(z.string()).describe('Array of task IDs to complete'),
+  },
+  async ({ task_ids }) => {
+    const result = await tasks.completeTasksBatch(task_ids);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_reopen_tasks_batch',
+  'Reopen multiple completed tasks at once (uses parallel API calls)',
+  {
+    task_ids: z.array(z.string()).describe('Array of task IDs to reopen'),
+  },
+  async ({ task_ids }) => {
+    const result = await tasks.reopenTasksBatch(task_ids);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_move_tasks_batch',
+  'Move multiple tasks to different projects/sections/parents at once (uses parallel API calls)',
+  {
+    moves: z.array(z.object({
+      task_id: z.string().describe('Task ID to move'),
+      project_id: z.string().optional().describe('Target project ID'),
+      section_id: z.string().optional().describe('Target section ID'),
+      parent_id: z.string().optional().describe('Target parent task ID'),
+    })).describe('Array of move operations'),
+  },
+  async ({ moves }) => {
+    const result = await tasks.moveTasksBatch(moves);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
   'todoist_search_tasks',
   'Search for tasks by content using Todoist search filter',
   {

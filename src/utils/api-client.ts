@@ -3,20 +3,12 @@ import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 const REST_API_BASE = 'https://api.todoist.com/rest/v2';
 const SYNC_API_BASE = 'https://api.todoist.com/sync/v9';
 
-const RATE_LIMIT = 450;
-const RATE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
-
-interface RateLimitState {
-  requestCount: number;
-  windowStart: number;
-}
 
 class TodoistApiClient {
   private restClient: AxiosInstance;
   private syncClient: AxiosInstance;
-  private rateLimitState: RateLimitState;
 
   constructor(apiToken: string) {
     if (!apiToken) {
@@ -38,38 +30,6 @@ class TodoistApiClient {
         'Content-Type': 'application/json',
       },
     });
-
-    this.rateLimitState = {
-      requestCount: 0,
-      windowStart: Date.now(),
-    };
-  }
-
-  private resetRateLimitIfNeeded(): void {
-    const now = Date.now();
-    if (now - this.rateLimitState.windowStart >= RATE_WINDOW_MS) {
-      this.rateLimitState = {
-        requestCount: 0,
-        windowStart: now,
-      };
-    }
-  }
-
-  private async checkRateLimit(): Promise<void> {
-    this.resetRateLimitIfNeeded();
-    
-    if (this.rateLimitState.requestCount >= RATE_LIMIT) {
-      const waitTime = RATE_WINDOW_MS - (Date.now() - this.rateLimitState.windowStart);
-      if (waitTime > 0) {
-        await this.sleep(waitTime);
-        this.rateLimitState = {
-          requestCount: 0,
-          windowStart: Date.now(),
-        };
-      }
-    }
-    
-    this.rateLimitState.requestCount++;
   }
 
   private sleep(ms: number): Promise<void> {
@@ -81,7 +41,6 @@ class TodoistApiClient {
     
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        await this.checkRateLimit();
         return await fn();
       } catch (error) {
         lastError = error as Error;
