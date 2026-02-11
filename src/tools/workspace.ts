@@ -10,11 +10,6 @@ import { listProjects, createProject } from './projects.js';
 import { listSections, createSection } from './sections.js';
 import { listTasks, createTask, completeTask } from './tasks.js';
 
-interface PaginatedResponse<T> {
-  results: T[];
-  next_cursor?: string;
-}
-
 interface WorkspaceOverview {
   projects: TodoistProject[];
   sections: TodoistSection[];
@@ -45,10 +40,13 @@ export async function getWorkspaceOverview(params?: {
       });
     }
 
+    const tasksData = tasksResult.data || [];
+    const tasksList = Array.isArray(tasksData) ? tasksData : tasksData.results;
+
     return createResponse(true, {
       projects: projectsResult.data || [],
       sections: sectionsResult.data || [],
-      tasks: tasksResult.data || [],
+      tasks: tasksList,
     });
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));

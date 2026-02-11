@@ -177,6 +177,8 @@ export interface ListTasksParams {
   filter?: string;
   lang?: string;
   ids?: string[];
+  cursor?: string;
+  limit?: number;
 }
 
 export interface CreateProjectParams {

@@ -1,16 +1,11 @@
 import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
 import type { TodoistProject, ToolResponse, CreateProjectParams } from '../types/index.js';
 
-interface PaginatedResponse<T> {
-  results: T[];
-  next_cursor?: string;
-}
-
 export async function listProjects(): Promise<ToolResponse<TodoistProject[]>> {
   try {
     const client = getApiClient();
-    const response = await client.get<PaginatedResponse<TodoistProject>>('/projects');
-    return createResponse(true, response.results);
+    const results = await client.getAllPaginated<TodoistProject>('/projects');
+    return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

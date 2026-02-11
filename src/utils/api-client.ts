@@ -4,6 +4,7 @@ const API_BASE = 'https://api.todoist.com/api/v1';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+const MAX_PAGE_SIZE = 200;
 
 class TodoistApiClient {
   private client: AxiosInstance;
@@ -72,6 +73,34 @@ class TodoistApiClient {
       const response = await this.client.get<T>(endpoint, config);
       return response.data;
     });
+  }
+
+  async getAllPaginated<T>(
+    endpoint: string,
+    params?: Record<string, unknown>
+  ): Promise<T[]> {
+    const allResults: T[] = [];
+    let cursor: string | null = null;
+
+    do {
+      const queryParams: Record<string, unknown> = {
+        ...params,
+        limit: MAX_PAGE_SIZE,
+      };
+      if (cursor) {
+        queryParams.cursor = cursor;
+      }
+
+      const response = await this.get<{ results: T[]; next_cursor: string | null }>(
+        endpoint,
+        queryParams
+      );
+
+      allResults.push(...response.results);
+      cursor = response.next_cursor;
+    } while (cursor);
+
+    return allResults;
   }
 
   async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {

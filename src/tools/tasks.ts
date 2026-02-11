@@ -10,12 +10,18 @@ import type {
 
 interface PaginatedResponse<T> {
   results: T[];
+  next_cursor: string | null;
+}
+
+interface PaginatedResult<T> {
+  results: T[];
   next_cursor?: string;
 }
 
-export async function listTasks(params: ListTasksParams = {}): Promise<ToolResponse<TodoistTask[]>> {
+export async function listTasks(params: ListTasksParams = {}): Promise<ToolResponse<TodoistTask[] | PaginatedResult<TodoistTask>>> {
   try {
     const client = getApiClient();
+    const manualPagination = params.cursor !== undefined || params.limit !== undefined;
     
     // API v1 uses separate endpoint for filters
     if (params.filter) {
@@ -24,8 +30,18 @@ export async function listTasks(params: ListTasksParams = {}): Promise<ToolRespo
       };
       if (params.lang) queryParams.lang = params.lang;
       
-      const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks/filter', queryParams);
-      return createResponse(true, response.results);
+      if (manualPagination) {
+        if (params.limit) queryParams.limit = params.limit;
+        if (params.cursor) queryParams.cursor = params.cursor;
+        const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks/filter', queryParams);
+        return createResponse(true, {
+          results: response.results,
+          next_cursor: response.next_cursor || undefined,
+        });
+      }
+      
+      const results = await client.getAllPaginated<TodoistTask>('/tasks/filter', queryParams);
+      return createResponse(true, results);
     }
     
     // Regular task listing
@@ -35,8 +51,18 @@ export async function listTasks(params: ListTasksParams = {}): Promise<ToolRespo
     if (params.label) queryParams.label = params.label;
     if (params.ids && params.ids.length > 0) queryParams.ids = params.ids.join(',');
     
-    const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks', queryParams);
-    return createResponse(true, response.results);
+    if (manualPagination) {
+      if (params.limit) queryParams.limit = params.limit;
+      if (params.cursor) queryParams.cursor = params.cursor;
+      const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks', queryParams);
+      return createResponse(true, {
+        results: response.results,
+        next_cursor: response.next_cursor || undefined,
+      });
+    }
+    
+    const results = await client.getAllPaginated<TodoistTask>('/tasks', queryParams);
+    return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
@@ -335,8 +361,8 @@ export async function searchTasks(query: string, params: Omit<ListTasksParams, '
     
     if (params.lang) queryParams.lang = params.lang;
     
-    const response = await client.get<PaginatedResponse<TodoistTask>>('/tasks/filter', queryParams);
-    return createResponse(true, response.results);
+    const results = await client.getAllPaginated<TodoistTask>('/tasks/filter', queryParams);
+    return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

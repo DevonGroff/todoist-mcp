@@ -8,16 +8,11 @@ interface CreateLabelParams {
   is_favorite?: boolean;
 }
 
-interface PaginatedResponse<T> {
-  results: T[];
-  next_cursor?: string;
-}
-
 export async function listLabels(): Promise<ToolResponse<TodoistLabel[]>> {
   try {
     const client = getApiClient();
-    const response = await client.get<PaginatedResponse<TodoistLabel>>('/labels');
-    return createResponse(true, response.results);
+    const results = await client.getAllPaginated<TodoistLabel>('/labels');
+    return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }

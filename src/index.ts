@@ -222,7 +222,7 @@ server.tool(
 
 server.tool(
   'todoist_list_tasks',
-  'List active tasks. For initial context, prefer todoist_get_workspace_overview instead.',
+  'List active tasks. Auto-paginates to return ALL tasks by default. For initial context, prefer todoist_get_workspace_overview instead. Use cursor/limit for manual pagination on large accounts.',
   {
     project_id: z.string().optional().describe('Filter by project ID'),
     section_id: z.string().optional().describe('Filter by section ID'),
@@ -230,6 +230,8 @@ server.tool(
     filter: z.string().optional().describe('Todoist filter query (e.g., "today", "overdue", "p1")'),
     lang: z.string().optional().describe('Language for filter if not English'),
     ids: z.array(z.string()).optional().describe('Specific task IDs to retrieve'),
+    cursor: z.string().optional().describe('Pagination cursor from previous response (disables auto-pagination)'),
+    limit: z.number().min(1).max(200).optional().describe('Max results per page, 1-200 (disables auto-pagination)'),
   },
   async (params) => {
     const result = await tasks.listTasks(params);
