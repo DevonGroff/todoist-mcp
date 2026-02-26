@@ -2,7 +2,7 @@
 
 A Model Context Protocol (MCP) server that provides integration with the Todoist REST API v2, enabling AI assistants to manage tasks, projects, sections, comments, and labels.
 
-**Note:** I used this project to test out Factory.ai -- use with caution. 
+**Note:** I used this project to test out Factory.ai and Claude Code. ⚠️ USE WITH CAUTION ⚠️
 
 ## Features
 
