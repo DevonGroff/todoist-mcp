@@ -10,6 +10,7 @@ import * as comments from './tools/comments.js';
 import * as completed from './tools/completed.js';
 import * as labels from './tools/labels.js';
 import * as workspace from './tools/workspace.js';
+import * as discovery from './tools/discovery.js';
 
 const server = new McpServer({
   name: 'todoist-mcp',
@@ -692,6 +693,37 @@ server.tool(
   },
   async ({ label_id }) => {
     const result = await labels.deleteLabel(label_id);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// =============================================================================
+// DISCOVERY TOOLS - Read-only analysis of task structure and duplicates
+// =============================================================================
+
+server.tool(
+  'todoist_get_task_hierarchy',
+  'Get a task with all its subtasks in a tree structure, including completion tracking. Walks up to the root parent and builds the full hierarchy.',
+  {
+    task_id: z.string().describe('Task ID to get hierarchy for (will find root parent automatically)'),
+  },
+  async ({ task_id }) => {
+    const result = await discovery.getTaskHierarchy(task_id);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_find_duplicates',
+  'Find duplicate or similar tasks using title similarity analysis. Returns grouped tasks sorted by similarity percentage. Read-only — does not modify any tasks.',
+  {
+    threshold: z.number().min(0).max(100).optional()
+      .describe('Similarity threshold 0-100 (default 80). Tasks with similarity >= threshold are grouped.'),
+    project_id: z.string().optional()
+      .describe('Limit search to a specific project ID. Omit to scan all tasks.'),
+  },
+  async (params) => {
+    const result = await discovery.findDuplicates(params);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   }
 );
