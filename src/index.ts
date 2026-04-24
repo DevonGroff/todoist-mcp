@@ -11,6 +11,7 @@ import * as completed from './tools/completed.js';
 import * as labels from './tools/labels.js';
 import * as workspace from './tools/workspace.js';
 import * as discovery from './tools/discovery.js';
+import * as uploads from './tools/uploads.js';
 
 const server = new McpServer({
   name: 'todoist-mcp',
@@ -107,6 +108,7 @@ server.tool(
       due_date: z.string().optional(),
       due_datetime: z.string().optional(),
       due_lang: z.string().optional(),
+      deadline: z.object({ date: z.string(), lang: z.string().optional() }).optional(),
       assignee_id: z.string().optional(),
       duration: z.number().optional(),
       duration_unit: z.enum(['minute', 'day']).optional(),
@@ -132,6 +134,7 @@ server.tool(
       due_date: z.string().optional(),
       due_datetime: z.string().optional(),
       due_lang: z.string().optional(),
+      deadline: z.object({ date: z.string(), lang: z.string().optional() }).nullable().optional(),
       assignee_id: z.string().nullable().optional(),
       duration: z.number().nullable().optional(),
       duration_unit: z.enum(['minute', 'day']).nullable().optional(),
@@ -268,6 +271,7 @@ server.tool(
     due_date: z.string().optional().describe('Due date in YYYY-MM-DD format'),
     due_datetime: z.string().optional().describe('Due datetime in RFC3339 format'),
     due_lang: z.string().optional().describe('Language for due_string'),
+    deadline: z.object({ date: z.string().describe('Deadline date YYYY-MM-DD'), lang: z.string().optional().describe('Language code') }).optional().describe('Hard deadline (separate from due date). Shows countdown in Todoist.'),
     assignee_id: z.string().optional().describe('Assignee user ID (shared tasks)'),
     duration: z.number().optional().describe('Duration amount'),
     duration_unit: z.enum(['minute', 'day']).optional().describe('Duration unit'),
@@ -291,6 +295,7 @@ server.tool(
     due_date: z.string().optional().describe('New due date (YYYY-MM-DD)'),
     due_datetime: z.string().optional().describe('New due datetime (RFC3339)'),
     due_lang: z.string().optional().describe('Language for due_string'),
+    deadline: z.object({ date: z.string().describe('Deadline date YYYY-MM-DD'), lang: z.string().optional().describe('Language code') }).nullable().optional().describe('Hard deadline (null to remove). Shows countdown in Todoist.'),
     assignee_id: z.string().nullable().optional().describe('New assignee (null to unassign)'),
     duration: z.number().nullable().optional().describe('New duration'),
     duration_unit: z.enum(['minute', 'day']).nullable().optional().describe('New duration unit'),
@@ -724,6 +729,51 @@ server.tool(
   },
   async (params) => {
     const result = await discovery.findDuplicates(params);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// =============================================================================
+// UPLOADS & ATTACHMENTS
+// =============================================================================
+
+server.tool(
+  'todoist_upload_file',
+  'Upload a local file to Todoist\'s CDN. Returns attachment metadata (file_url, file_name, file_size, file_type). Feed the metadata into todoist_create_comment.attachment to surface as a task or project attachment. For the common case of attaching a file to a task, prefer todoist_attach_file_to_task.',
+  {
+    file_path: z.string().describe('Absolute local filesystem path to the file to upload'),
+    file_name: z.string().optional().describe('Override filename shown in Todoist (defaults to basename of file_path)'),
+    project_id: z.string().optional().describe('Optional project to associate the upload with'),
+  },
+  async (params) => {
+    const result = await uploads.uploadFile(params);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_delete_upload',
+  'Delete a previously uploaded file from Todoist\'s CDN by its file_url. Comments that reference the URL are not removed; the file_attachment metadata will still point at a dead URL.',
+  {
+    file_url: z.string().describe('The file_url returned by todoist_upload_file'),
+  },
+  async ({ file_url }) => {
+    const result = await uploads.deleteUpload(file_url);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.tool(
+  'todoist_attach_file_to_task',
+  'Attach a local file to a task (upload + create comment in one step). Todoist has no task-level attachment field in its API — attachments live on comments and render under the task in the UI.',
+  {
+    task_id: z.string().describe('Task ID to attach the file to'),
+    file_path: z.string().describe('Absolute local filesystem path to the file'),
+    file_name: z.string().optional().describe('Override filename (defaults to basename of file_path)'),
+    comment: z.string().optional().describe('Optional comment body (defaults to "Attached <file_name>")'),
+  },
+  async (params) => {
+    const result = await uploads.attachFileToTask(params);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   }
 );

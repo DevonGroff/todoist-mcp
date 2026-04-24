@@ -110,9 +110,18 @@ class TodoistApiClient {
     });
   }
 
-  async delete(endpoint: string): Promise<void> {
+  async postMultipart<T>(endpoint: string, form: FormData): Promise<T> {
     return this.withRetry(async () => {
-      await this.client.delete(endpoint);
+      const response = await this.client.post<T>(endpoint, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    });
+  }
+
+  async delete(endpoint: string, data?: Record<string, unknown>): Promise<void> {
+    return this.withRetry(async () => {
+      await this.client.delete(endpoint, data ? { data } : undefined);
     });
   }
 }

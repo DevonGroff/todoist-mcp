@@ -112,6 +112,18 @@ export interface TodoistCollaborator {
   email: string;
 }
 
+export interface TodoistUpload {
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  resource_type?: string;
+  upload_state?: string;
+  image?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
+}
+
 export interface CompletedTask {
   id: string;
   user_id: string;
@@ -151,6 +163,7 @@ export interface CreateTaskParams {
   due_date?: string;
   due_datetime?: string;
   due_lang?: string;
+  deadline?: { date: string; lang?: string };
   assignee_id?: string;
   duration?: number;
   duration_unit?: 'minute' | 'day';
@@ -165,6 +178,7 @@ export interface UpdateTaskParams {
   due_date?: string;
   due_datetime?: string;
   due_lang?: string;
+  deadline?: { date: string; lang?: string } | null;
   assignee_id?: string | null;
   duration?: number | null;
   duration_unit?: 'minute' | 'day' | null;
