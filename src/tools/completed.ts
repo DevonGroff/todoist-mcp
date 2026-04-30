@@ -1,5 +1,9 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { CompletedTask, ToolResponse } from '../types/index.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type { CompletedTask, ToolResponse } from "../types/index.js";
 
 interface ListCompletedTasksParams {
   project_id?: string;
@@ -33,45 +37,45 @@ interface CompletedTasksResult {
 }
 
 export async function listCompletedTasks(
-  params: ListCompletedTasksParams = {}
+  params: ListCompletedTasksParams = {},
 ): Promise<ToolResponse<CompletedTasksResult>> {
   try {
     const client = getApiClient();
-    
+
     // API v1 requires since and until params (max 3 months range)
     const now = new Date();
     const threeMonthsAgo = new Date(now);
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    
+
     const queryParams: Record<string, unknown> = {
       since: params.since || threeMonthsAgo.toISOString(),
       until: params.until || now.toISOString(),
       limit: params.limit || 50,
     };
-    
+
     if (params.project_id) queryParams.project_id = params.project_id;
     if (params.section_id) queryParams.section_id = params.section_id;
     if (params.cursor) queryParams.cursor = params.cursor;
-    
+
     const response = await client.get<CompletedTasksApiResponse>(
-      '/tasks/completed/by_completion_date',
-      queryParams
+      "/tasks/completed/by_completion_date",
+      queryParams,
     );
-    
-    const completedTasks: CompletedTask[] = response.items.map(item => ({
+
+    const completedTasks: CompletedTask[] = response.items.map((item) => ({
       id: item.id,
       user_id: item.user_id,
       project_id: item.project_id,
       section_id: item.section_id || null,
       parent_id: item.parent_id || null,
       content: item.content,
-      description: item.description || '',
+      description: item.description || "",
       completed_at: item.completed_at,
-      added_at: item.added_at || '',
+      added_at: item.added_at || "",
       priority: item.priority || 1,
       labels: item.labels || [],
     }));
-    
+
     return createResponse(true, {
       items: completedTasks,
       next_cursor: response.next_cursor,
@@ -81,32 +85,34 @@ export async function listCompletedTasks(
   }
 }
 
-export async function getCompletedTaskStats(projectId?: string): Promise<ToolResponse<{
-  total: number;
-  byProject: Record<string, number>;
-  byDate: Record<string, number>;
-}>> {
+export async function getCompletedTaskStats(projectId?: string): Promise<
+  ToolResponse<{
+    total: number;
+    byProject: Record<string, number>;
+    byDate: Record<string, number>;
+  }>
+> {
   try {
-    const result = await listCompletedTasks({ 
+    const result = await listCompletedTasks({
       project_id: projectId,
       limit: 200,
     });
-    
+
     if (!result.success || !result.data) {
       return result as ToolResponse<never>;
     }
-    
+
     const tasks = result.data.items;
     const byProject: Record<string, number> = {};
     const byDate: Record<string, number> = {};
-    
+
     for (const task of tasks) {
       byProject[task.project_id] = (byProject[task.project_id] || 0) + 1;
-      
-      const date = task.completed_at.split('T')[0];
+
+      const date = task.completed_at.split("T")[0];
       byDate[date] = (byDate[date] || 0) + 1;
     }
-    
+
     return createResponse(true, {
       total: tasks.length,
       byProject,

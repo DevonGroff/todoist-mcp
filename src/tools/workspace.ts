@@ -1,14 +1,18 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
 import type {
   TodoistProject,
   TodoistSection,
   TodoistTask,
   ToolResponse,
   CreateTaskParams,
-} from '../types/index.js';
-import { listProjects, createProject } from './projects.js';
-import { listSections, createSection } from './sections.js';
-import { listTasks, createTask, completeTask } from './tasks.js';
+} from "../types/index.js";
+import { listProjects, createProject } from "./projects.js";
+import { listSections, createSection } from "./sections.js";
+import { listTasks, createTask, completeTask } from "./tasks.js";
 
 interface WorkspaceOverview {
   projects: TodoistProject[];
@@ -27,16 +31,20 @@ export async function getWorkspaceOverview(params?: {
       listTasks(params?.project_id ? { project_id: params.project_id } : {}),
     ]);
 
-    if (!projectsResult.success || !sectionsResult.success || !tasksResult.success) {
+    if (
+      !projectsResult.success ||
+      !sectionsResult.success ||
+      !tasksResult.success
+    ) {
       const errors = [
         !projectsResult.success && projectsResult.error?.message,
         !sectionsResult.success && sectionsResult.error?.message,
         !tasksResult.success && tasksResult.error?.message,
       ].filter(Boolean);
-      
+
       return createResponse(false, undefined, {
-        code: 'PARTIAL_FAILURE',
-        message: `Failed to fetch some data: ${errors.join(', ')}`,
+        code: "PARTIAL_FAILURE",
+        message: `Failed to fetch some data: ${errors.join(", ")}`,
       });
     }
 
@@ -53,15 +61,18 @@ export async function getWorkspaceOverview(params?: {
   }
 }
 
-export async function getProjectsByIds(
-  projectIds: string[]
-): Promise<ToolResponse<{
-  projects: TodoistProject[];
-  failed: Array<{ id: string; error: { code: string; message: string } }>;
-}>> {
+export async function getProjectsByIds(projectIds: string[]): Promise<
+  ToolResponse<{
+    projects: TodoistProject[];
+    failed: Array<{ id: string; error: { code: string; message: string } }>;
+  }>
+> {
   const client = getApiClient();
   const projects: TodoistProject[] = [];
-  const failed: Array<{ id: string; error: { code: string; message: string } }> = [];
+  const failed: Array<{
+    id: string;
+    error: { code: string; message: string };
+  }> = [];
 
   const fetchPromises = projectIds.map(async (id) => {
     try {
@@ -75,9 +86,9 @@ export async function getProjectsByIds(
   const outcomes = await Promise.all(fetchPromises);
 
   for (const outcome of outcomes) {
-    if (outcome.success && 'data' in outcome) {
+    if (outcome.success && "data" in outcome) {
       projects.push(outcome.data as TodoistProject);
-    } else if ('error' in outcome) {
+    } else if ("error" in outcome) {
       failed.push({
         id: outcome.id,
         error: outcome.error as { code: string; message: string },
@@ -99,11 +110,13 @@ export async function createTaskWithContext(params: {
   priority?: number;
   due_string?: string;
   due_date?: string;
-}): Promise<ToolResponse<{
-  task: TodoistTask;
-  created_project?: TodoistProject;
-  created_section?: TodoistSection;
-}>> {
+}): Promise<
+  ToolResponse<{
+    task: TodoistTask;
+    created_project?: TodoistProject;
+    created_section?: TodoistSection;
+  }>
+> {
   try {
     let projectId = params.project_id;
     let sectionId = params.section_id;
@@ -115,12 +128,14 @@ export async function createTaskWithContext(params: {
       const projectsResult = await listProjects();
       if (projectsResult.success && projectsResult.data) {
         const existingProject = projectsResult.data.find(
-          p => p.name.toLowerCase() === params.project_name!.toLowerCase()
+          (p) => p.name.toLowerCase() === params.project_name!.toLowerCase(),
         );
         if (existingProject) {
           projectId = existingProject.id;
         } else {
-          const newProjectResult = await createProject({ name: params.project_name });
+          const newProjectResult = await createProject({
+            name: params.project_name,
+          });
           if (newProjectResult.success && newProjectResult.data) {
             projectId = newProjectResult.data.id;
             createdProject = newProjectResult.data;
@@ -134,7 +149,7 @@ export async function createTaskWithContext(params: {
       const sectionsResult = await listSections(projectId);
       if (sectionsResult.success && sectionsResult.data) {
         const existingSection = sectionsResult.data.find(
-          s => s.name.toLowerCase() === params.section_name!.toLowerCase()
+          (s) => s.name.toLowerCase() === params.section_name!.toLowerCase(),
         );
         if (existingSection) {
           sectionId = existingSection.id;
@@ -188,17 +203,25 @@ export async function completeAndCreateFollowup(params: {
   inherit_project?: boolean;
   inherit_section?: boolean;
   inherit_labels?: boolean;
-}): Promise<ToolResponse<{
-  completed_task_id: string;
-  followup_task: TodoistTask;
-}>> {
+}): Promise<
+  ToolResponse<{
+    completed_task_id: string;
+    followup_task: TodoistTask;
+  }>
+> {
   try {
     const client = getApiClient();
-    
+
     // Get the original task first to inherit properties if needed
     let originalTask: TodoistTask | null = null;
-    if (params.inherit_project || params.inherit_section || params.inherit_labels) {
-      const taskResponse = await client.get<TodoistTask>(`/tasks/${params.task_id}`);
+    if (
+      params.inherit_project ||
+      params.inherit_section ||
+      params.inherit_labels
+    ) {
+      const taskResponse = await client.get<TodoistTask>(
+        `/tasks/${params.task_id}`,
+      );
       originalTask = taskResponse;
     }
 
@@ -211,22 +234,31 @@ export async function completeAndCreateFollowup(params: {
         due_string: params.followup_due_string,
         due_date: params.followup_due_date,
         priority: params.followup_priority,
-        project_id: params.inherit_project && originalTask ? originalTask.project_id : undefined,
-        section_id: params.inherit_section && originalTask ? originalTask.section_id || undefined : undefined,
-        labels: params.inherit_labels && originalTask ? originalTask.labels : undefined,
+        project_id:
+          params.inherit_project && originalTask
+            ? originalTask.project_id
+            : undefined,
+        section_id:
+          params.inherit_section && originalTask
+            ? originalTask.section_id || undefined
+            : undefined,
+        labels:
+          params.inherit_labels && originalTask
+            ? originalTask.labels
+            : undefined,
       }),
     ]);
 
     if (!completeResult.success) {
       return createResponse(false, undefined, {
-        code: 'COMPLETE_FAILED',
+        code: "COMPLETE_FAILED",
         message: `Failed to complete task: ${completeResult.error?.message}`,
       });
     }
 
     if (!followupResult.success || !followupResult.data) {
       return createResponse(false, undefined, {
-        code: 'FOLLOWUP_FAILED',
+        code: "FOLLOWUP_FAILED",
         message: `Task completed but followup creation failed: ${followupResult.error?.message}`,
       });
     }

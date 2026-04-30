@@ -1,5 +1,9 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { TodoistLabel, ToolResponse } from '../types/index.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type { TodoistLabel, ToolResponse } from "../types/index.js";
 
 interface CreateLabelParams {
   name: string;
@@ -11,14 +15,16 @@ interface CreateLabelParams {
 export async function listLabels(): Promise<ToolResponse<TodoistLabel[]>> {
   try {
     const client = getApiClient();
-    const results = await client.getAllPaginated<TodoistLabel>('/labels');
+    const results = await client.getAllPaginated<TodoistLabel>("/labels");
     return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function getLabel(labelId: string): Promise<ToolResponse<TodoistLabel>> {
+export async function getLabel(
+  labelId: string,
+): Promise<ToolResponse<TodoistLabel>> {
   try {
     const client = getApiClient();
     const label = await client.get<TodoistLabel>(`/labels/${labelId}`);
@@ -28,10 +34,15 @@ export async function getLabel(labelId: string): Promise<ToolResponse<TodoistLab
   }
 }
 
-export async function createLabel(params: CreateLabelParams): Promise<ToolResponse<TodoistLabel>> {
+export async function createLabel(
+  params: CreateLabelParams,
+): Promise<ToolResponse<TodoistLabel>> {
   try {
     const client = getApiClient();
-    const label = await client.post<TodoistLabel>('/labels', params as unknown as Record<string, unknown>);
+    const label = await client.post<TodoistLabel>(
+      "/labels",
+      params as unknown as Record<string, unknown>,
+    );
     return createResponse(true, label);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
@@ -40,18 +51,23 @@ export async function createLabel(params: CreateLabelParams): Promise<ToolRespon
 
 export async function updateLabel(
   labelId: string,
-  params: Partial<CreateLabelParams>
+  params: Partial<CreateLabelParams>,
 ): Promise<ToolResponse<TodoistLabel>> {
   try {
     const client = getApiClient();
-    const label = await client.post<TodoistLabel>(`/labels/${labelId}`, params as unknown as Record<string, unknown>);
+    const label = await client.post<TodoistLabel>(
+      `/labels/${labelId}`,
+      params as unknown as Record<string, unknown>,
+    );
     return createResponse(true, label);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function deleteLabel(labelId: string): Promise<ToolResponse<{ deleted: boolean }>> {
+export async function deleteLabel(
+  labelId: string,
+): Promise<ToolResponse<{ deleted: boolean }>> {
   try {
     const client = getApiClient();
     await client.delete(`/labels/${labelId}`);

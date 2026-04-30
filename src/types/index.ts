@@ -10,7 +10,7 @@ export interface TodoistDue {
 
 export interface TodoistDuration {
   amount: number;
-  unit: 'minute' | 'day';
+  unit: "minute" | "day";
 }
 
 export interface TodoistDeadline {
@@ -138,8 +138,6 @@ export interface CompletedTask {
   labels: string[];
 }
 
-
-
 export interface ToolResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -166,7 +164,7 @@ export interface CreateTaskParams {
   deadline?: { date: string; lang?: string };
   assignee_id?: string;
   duration?: number;
-  duration_unit?: 'minute' | 'day';
+  duration_unit?: "minute" | "day";
 }
 
 export interface UpdateTaskParams {
@@ -181,7 +179,7 @@ export interface UpdateTaskParams {
   deadline?: { date: string; lang?: string } | null;
   assignee_id?: string | null;
   duration?: number | null;
-  duration_unit?: 'minute' | 'day' | null;
+  duration_unit?: "minute" | "day" | null;
 }
 
 export interface ListTasksParams {
@@ -200,7 +198,7 @@ export interface CreateProjectParams {
   parent_id?: string;
   color?: string;
   is_favorite?: boolean;
-  view_style?: 'list' | 'board';
+  view_style?: "list" | "board";
 }
 
 export interface CreateSectionParams {
