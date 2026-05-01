@@ -12,7 +12,8 @@
     "prepare": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "secrets:scan": "bash scripts/secret-scan.sh"
   },
   "repository": {
     "type": "git",
