@@ -2,10 +2,12 @@ import {
   getApiClient,
   createResponse,
   handleApiError,
+  getBatchRecoveryHint,
 } from "../utils/api-client.js";
 import type {
   TodoistComment,
   ToolResponse,
+  ToolError,
   CreateCommentParams,
   UpdateCommentParams,
 } from "../types/index.js";
@@ -174,25 +176,29 @@ export async function createCommentsBatch(
 ): Promise<
   ToolResponse<{
     created: TodoistComment[];
-    failed: Array<{ index: number; error: { code: string; message: string } }>;
+    failed: Array<{ index: number; error: ToolError }>;
   }>
 > {
   const created: TodoistComment[] = [];
   const failed: Array<{
     index: number;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const createPromises = comments.map(async (params, index) => {
     try {
       const result = await createComment(params);
-      if (result.success && result.data) {
+      if (result.success) {
         return { success: true, index, data: result.data };
       } else {
         return {
           success: false,
           index,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -208,10 +214,14 @@ export async function createCommentsBatch(
     } else if ("error" in outcome) {
       failed.push({
         index: outcome.index,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { created, failed });
+  return createResponse(true, {
+    created,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }

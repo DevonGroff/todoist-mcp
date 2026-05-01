@@ -158,6 +158,7 @@ describe("createTasksBatch", () => {
         error: {
           code: "INTERNAL_ERROR",
           message: "Todoist unavailable",
+          retryable: false,
         },
       },
     ]);

@@ -2,12 +2,14 @@ import {
   getApiClient,
   createResponse,
   handleApiError,
+  getBatchRecoveryHint,
 } from "../utils/api-client.js";
 import type {
   TodoistProject,
   TodoistSection,
   TodoistTask,
   ToolResponse,
+  ToolError,
   CreateTaskParams,
 } from "../types/index.js";
 import { listProjects, createProject } from "./projects.js";
@@ -37,14 +39,16 @@ export async function getWorkspaceOverview(params?: {
       !tasksResult.success
     ) {
       const errors = [
-        !projectsResult.success && projectsResult.error?.message,
-        !sectionsResult.success && sectionsResult.error?.message,
-        !tasksResult.success && tasksResult.error?.message,
-      ].filter(Boolean);
+        !projectsResult.success ? projectsResult.error : undefined,
+        !sectionsResult.success ? sectionsResult.error : undefined,
+        !tasksResult.success ? tasksResult.error : undefined,
+      ].filter((error): error is ToolError => Boolean(error));
 
       return createResponse(false, undefined, {
         code: "PARTIAL_FAILURE",
-        message: `Failed to fetch some data: ${errors.join(", ")}`,
+        message: `Failed to fetch some data: ${errors.map((error) => error.message).join(", ")}`,
+        retryable: errors.some((error) => error.retryable),
+        hint: errors.find((error) => error.hint)?.hint,
       });
     }
 
@@ -64,14 +68,14 @@ export async function getWorkspaceOverview(params?: {
 export async function getProjectsByIds(projectIds: string[]): Promise<
   ToolResponse<{
     projects: TodoistProject[];
-    failed: Array<{ id: string; error: { code: string; message: string } }>;
+    failed: Array<{ id: string; error: ToolError }>;
   }>
 > {
   const client = getApiClient();
   const projects: TodoistProject[] = [];
   const failed: Array<{
     id: string;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const fetchPromises = projectIds.map(async (id) => {
@@ -91,12 +95,16 @@ export async function getProjectsByIds(projectIds: string[]): Promise<
     } else if ("error" in outcome) {
       failed.push({
         id: outcome.id,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { projects, failed });
+  return createResponse(true, {
+    projects,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function createTaskWithContext(params: {
@@ -179,7 +187,7 @@ export async function createTaskWithContext(params: {
     };
 
     const taskResult = await createTask(taskParams);
-    if (!taskResult.success || !taskResult.data) {
+    if (!taskResult.success) {
       return createResponse(false, undefined, taskResult.error);
     }
 
@@ -252,14 +260,18 @@ export async function completeAndCreateFollowup(params: {
     if (!completeResult.success) {
       return createResponse(false, undefined, {
         code: "COMPLETE_FAILED",
-        message: `Failed to complete task: ${completeResult.error?.message}`,
+        message: `Failed to complete task: ${completeResult.error.message}`,
+        retryable: completeResult.error.retryable,
+        hint: completeResult.error.hint,
       });
     }
 
-    if (!followupResult.success || !followupResult.data) {
+    if (!followupResult.success) {
       return createResponse(false, undefined, {
         code: "FOLLOWUP_FAILED",
-        message: `Task completed but followup creation failed: ${followupResult.error?.message}`,
+        message: `Task completed but followup creation failed: ${followupResult.error.message}`,
+        retryable: followupResult.error.retryable,
+        hint: followupResult.error.hint,
       });
     }
 

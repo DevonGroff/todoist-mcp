@@ -138,15 +138,23 @@ export interface CompletedTask {
   labels: string[];
 }
 
-export interface ToolResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
+export interface ToolError {
+  code: string;
+  message: string;
+  retryable: boolean;
+  hint?: string;
+  details?: unknown;
 }
+
+export type ToolResponse<T = unknown> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: ToolError;
+    };
 
 export interface CreateTaskParams {
   content: string;

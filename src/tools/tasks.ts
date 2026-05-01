@@ -2,10 +2,12 @@ import {
   getApiClient,
   createResponse,
   handleApiError,
+  getBatchRecoveryHint,
 } from "../utils/api-client.js";
 import type {
   TodoistTask,
   ToolResponse,
+  ToolError,
   ListTasksParams,
   CreateTaskParams,
   UpdateTaskParams,
@@ -191,25 +193,29 @@ export async function moveTask(
 export async function createTasksBatch(tasks: CreateTaskParams[]): Promise<
   ToolResponse<{
     created: TodoistTask[];
-    failed: Array<{ index: number; error: { code: string; message: string } }>;
+    failed: Array<{ index: number; error: ToolError }>;
   }>
 > {
   const results: TodoistTask[] = [];
   const failed: Array<{
     index: number;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const createPromises = tasks.map(async (taskParams, index) => {
     try {
       const result = await createTask(taskParams);
-      if (result.success && result.data) {
+      if (result.success) {
         return { success: true, index, data: result.data };
       } else {
         return {
           success: false,
           index,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -225,12 +231,16 @@ export async function createTasksBatch(tasks: CreateTaskParams[]): Promise<
     } else if ("error" in outcome) {
       failed.push({
         index: outcome.index,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { created: results, failed });
+  return createResponse(true, {
+    created: results,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function updateTasksBatch(
@@ -240,26 +250,30 @@ export async function updateTasksBatch(
     updated: TodoistTask[];
     failed: Array<{
       task_id: string;
-      error: { code: string; message: string };
+      error: ToolError;
     }>;
   }>
 > {
   const results: TodoistTask[] = [];
   const failed: Array<{
     task_id: string;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const updatePromises = updates.map(async ({ task_id, ...params }) => {
     try {
       const result = await updateTask(task_id, params);
-      if (result.success && result.data) {
+      if (result.success) {
         return { success: true, task_id, data: result.data };
       } else {
         return {
           success: false,
           task_id,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -275,12 +289,16 @@ export async function updateTasksBatch(
     } else if ("error" in outcome) {
       failed.push({
         task_id: outcome.task_id,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { updated: results, failed });
+  return createResponse(true, {
+    updated: results,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function completeTasksBatch(taskIds: string[]): Promise<
@@ -288,14 +306,14 @@ export async function completeTasksBatch(taskIds: string[]): Promise<
     completed: string[];
     failed: Array<{
       task_id: string;
-      error: { code: string; message: string };
+      error: ToolError;
     }>;
   }>
 > {
   const completed: string[] = [];
   const failed: Array<{
     task_id: string;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const completePromises = taskIds.map(async (task_id) => {
@@ -307,7 +325,11 @@ export async function completeTasksBatch(taskIds: string[]): Promise<
         return {
           success: false,
           task_id,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -323,12 +345,16 @@ export async function completeTasksBatch(taskIds: string[]): Promise<
     } else if ("error" in outcome) {
       failed.push({
         task_id: outcome.task_id,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { completed, failed });
+  return createResponse(true, {
+    completed,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function reopenTasksBatch(taskIds: string[]): Promise<
@@ -336,14 +362,14 @@ export async function reopenTasksBatch(taskIds: string[]): Promise<
     reopened: string[];
     failed: Array<{
       task_id: string;
-      error: { code: string; message: string };
+      error: ToolError;
     }>;
   }>
 > {
   const reopened: string[] = [];
   const failed: Array<{
     task_id: string;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const reopenPromises = taskIds.map(async (task_id) => {
@@ -355,7 +381,11 @@ export async function reopenTasksBatch(taskIds: string[]): Promise<
         return {
           success: false,
           task_id,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -371,12 +401,16 @@ export async function reopenTasksBatch(taskIds: string[]): Promise<
     } else if ("error" in outcome) {
       failed.push({
         task_id: outcome.task_id,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { reopened, failed });
+  return createResponse(true, {
+    reopened,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function moveTasksBatch(moves: MoveTaskParams[]): Promise<
@@ -384,26 +418,30 @@ export async function moveTasksBatch(moves: MoveTaskParams[]): Promise<
     moved: TodoistTask[];
     failed: Array<{
       task_id: string;
-      error: { code: string; message: string };
+      error: ToolError;
     }>;
   }>
 > {
   const moved: TodoistTask[] = [];
   const failed: Array<{
     task_id: string;
-    error: { code: string; message: string };
+    error: ToolError;
   }> = [];
 
   const movePromises = moves.map(async (params) => {
     try {
       const result = await moveTask(params);
-      if (result.success && result.data) {
+      if (result.success) {
         return { success: true, task_id: params.task_id, data: result.data };
       } else {
         return {
           success: false,
           task_id: params.task_id,
-          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
+          error: result.error || {
+            code: "UNKNOWN",
+            message: "Unknown error",
+            retryable: false,
+          },
         };
       }
     } catch (error) {
@@ -423,12 +461,16 @@ export async function moveTasksBatch(moves: MoveTaskParams[]): Promise<
     } else if ("error" in outcome) {
       failed.push({
         task_id: outcome.task_id,
-        error: outcome.error as { code: string; message: string },
+        error: outcome.error as ToolError,
       });
     }
   }
 
-  return createResponse(true, { moved, failed });
+  return createResponse(true, {
+    moved,
+    failed,
+    ...getBatchRecoveryHint(failed),
+  });
 }
 
 export async function searchTasks(

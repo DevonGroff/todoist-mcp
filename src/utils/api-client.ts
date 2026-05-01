@@ -4,6 +4,8 @@ import axios, {
   type AxiosRequestConfig,
 } from "axios";
 
+import type { ToolError, ToolResponse } from "../types/index.js";
+
 const API_BASE = "https://api.todoist.com/api/v1";
 
 export class NotConfiguredError extends Error {
@@ -62,8 +64,8 @@ class TodoistApiClient {
           }
 
           if (
-            axiosError.response?.status &&
-            axiosError.response.status >= 500
+            !axiosError.response ||
+            (axiosError.response.status && axiosError.response.status >= 500)
           ) {
             const delay = BASE_DELAY_MS * Math.pow(2, attempt);
             await this.sleep(delay);
@@ -158,30 +160,149 @@ export function getApiClient(): TodoistApiClient {
   return clientInstance;
 }
 
+export function createResponse<T>(success: true, data: T): ToolResponse<T>;
+export function createResponse(
+  success: false,
+  data: undefined,
+  error?: ToolErrorInput,
+): ToolResponse<never>;
 export function createResponse<T>(
   success: boolean,
   data?: T,
-  error?: { code: string; message: string; details?: unknown },
-) {
+  error?: ToolErrorInput,
+): ToolResponse<T> | ToolResponse<never> {
   if (success) {
-    return { success: true, data };
+    return { success: true, data: data as T };
   }
-  return { success: false, error };
+  return { success: false, error: normalizeToolError(error) };
 }
 
-export function handleApiError(error: unknown): {
+type ToolErrorInput = {
   code: string;
   message: string;
+  retryable?: boolean;
+  hint?: string;
   details?: unknown;
+};
+
+function normalizeToolError(error?: ToolErrorInput): ToolError {
+  if (!error) {
+    return {
+      code: "UNKNOWN_ERROR",
+      message: "An unknown error occurred",
+      retryable: false,
+      hint: getToolErrorHint("UNKNOWN_ERROR"),
+    };
+  }
+
+  const hint = error.hint ?? getToolErrorHint(error.code);
+
+  return {
+    code: error.code,
+    message: error.message,
+    retryable: error.retryable ?? false,
+    ...(hint ? { hint } : {}),
+    ...(error.details !== undefined ? { details: error.details } : {}),
+  };
+}
+
+function getToolErrorHint(code: string): string | undefined {
+  if (code === "INVALID_PARAMS") {
+    return "Review required parameters and use workspace overview or list tools to find valid Todoist IDs.";
+  }
+
+  if (code === "PARTIAL_FAILURE") {
+    return "Retry failed subsets individually or use narrower filters.";
+  }
+
+  if (code === "UNKNOWN_ERROR") {
+    return "Retry with simpler inputs. If the error persists, inspect server logs.";
+  }
+
+  return undefined;
+}
+
+function getHttpErrorHint(status: number): string | undefined {
+  if (status === 400) {
+    return "Check required parameters, date formats, and Todoist IDs before retrying.";
+  }
+
+  if (status === 401 || status === 403) {
+    return "Check that TODOIST_API_TOKEN is valid and has access to this resource.";
+  }
+
+  if (status === 404) {
+    return "Resource not found. List tasks, projects, or sections with filters to confirm the correct ID.";
+  }
+
+  if (status === 409) {
+    return "Resource state changed or conflicts with the request. Refresh the resource, then retry with current IDs and state.";
+  }
+
+  if (status === 422) {
+    return "Todoist rejected the request semantics. Check field constraints like priority range, due or deadline format, duration unit, and mutually exclusive parameters.";
+  }
+
+  if (status === 429) {
+    return "Todoist rate limit reached. Wait before retrying; use batch tools where possible.";
+  }
+
+  if (status >= 500) {
+    return "Todoist service error. Retry later, preferably with exponential backoff.";
+  }
+
+  return undefined;
+}
+
+export function getBatchRecoveryHint(failed: Array<{ error: ToolError }>): {
+  retryable_failed_count?: number;
+  hint?: string;
 } {
+  const retryableFailedCount = failed.filter(
+    ({ error }) => error.retryable,
+  ).length;
+
+  if (retryableFailedCount === 0) {
+    return {};
+  }
+
+  return {
+    retryable_failed_count: retryableFailedCount,
+    hint: "Some batch items failed with retryable errors. Retry only the failed items after following each item's error hint.",
+  };
+}
+
+function getAxiosErrorMessage(
+  error: AxiosError<{ message?: string; error?: string }>,
+): string {
+  const data = error.response?.data;
+  if (typeof data === "string") return data;
+  return data?.message || data?.error || error.message;
+}
+
+export function handleApiError(error: unknown): ToolError {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    const status = axiosError.response?.status || 500;
-    const message = axiosError.response?.data?.message || axiosError.message;
+    const axiosError = error as AxiosError<{
+      message?: string;
+      error?: string;
+    }>;
+    const status = axiosError.response?.status;
+    const message = getAxiosErrorMessage(axiosError);
+
+    if (!status) {
+      return {
+        code: "NETWORK_ERROR",
+        message,
+        retryable: true,
+        hint: "Network error while contacting Todoist. Retry after checking connectivity.",
+      };
+    }
 
     return {
       code: `HTTP_${status}`,
       message,
+      retryable: status === 429 || status >= 500,
+      hint: getHttpErrorHint(status),
       details: axiosError.response?.data,
     };
   }
@@ -191,17 +312,22 @@ export function handleApiError(error: unknown): {
       return {
         code: "NOT_CONFIGURED",
         message: error.message,
+        retryable: false,
+        hint: "Set TODOIST_API_TOKEN and restart the MCP server.",
       };
     }
 
     return {
       code: "INTERNAL_ERROR",
       message: error.message,
+      retryable: false,
     };
   }
 
   return {
     code: "UNKNOWN_ERROR",
     message: "An unknown error occurred",
+    retryable: false,
+    hint: getToolErrorHint("UNKNOWN_ERROR"),
   };
 }

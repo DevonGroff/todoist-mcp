@@ -79,6 +79,8 @@ describe("createComment", () => {
       error: {
         code: "INVALID_PARAMS",
         message: "Either task_id or project_id is required",
+        retryable: false,
+        hint: "Review required parameters and use workspace overview or list tools to find valid Todoist IDs.",
       },
     });
     expect(getApiClientMock).not.toHaveBeenCalled();
@@ -140,6 +142,8 @@ describe("createCommentsBatch", () => {
         error: {
           code: "INVALID_PARAMS",
           message: "Either task_id or project_id is required",
+          retryable: false,
+          hint: "Review required parameters and use workspace overview or list tools to find valid Todoist IDs.",
         },
       },
       {
@@ -147,6 +151,7 @@ describe("createCommentsBatch", () => {
         error: {
           code: "INTERNAL_ERROR",
           message: "Todoist unavailable",
+          retryable: false,
         },
       },
     ]);

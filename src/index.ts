@@ -12,6 +12,7 @@ import * as labels from "./tools/labels.js";
 import * as workspace from "./tools/workspace.js";
 import * as discovery from "./tools/discovery.js";
 import * as uploads from "./tools/uploads.js";
+import { runTool } from "./utils/tool-result.js";
 
 const server = new McpServer(
   {
@@ -23,7 +24,7 @@ const server = new McpServer(
       "Start with todoist_get_workspace_overview to understand the workspace before other operations.",
       "Prefer batch tools (todoist_*_batch) for multi-item operations instead of calling single-item tools repeatedly.",
       "Use todoist_create_task_with_context instead of manually creating projects/sections first — it finds or creates them automatically.",
-      "All tools return { success, data?, error? }. Check success before using data.",
+      "All tools return { success, data?, error? }. Check success before using data; errors include retryable and may include hint.",
       "If a tool returns error code NOT_CONFIGURED, the TODOIST_API_TOKEN environment variable is missing.",
     ].join(" "),
   },
@@ -43,12 +44,7 @@ server.tool(
       .describe("Optional: limit to specific project"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async (params) => {
-    const result = await workspace.getWorkspaceOverview(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => workspace.getWorkspaceOverview(params)),
 );
 
 server.tool(
@@ -79,12 +75,7 @@ server.tool(
     due_date: z.string().optional().describe("Due date YYYY-MM-DD"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await workspace.createTaskWithContext(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => workspace.createTaskWithContext(params)),
 );
 
 server.tool(
@@ -125,12 +116,7 @@ server.tool(
       .describe("Copy labels from completed task"),
   },
   { destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await workspace.completeAndCreateFollowup(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => workspace.completeAndCreateFollowup(params)),
 );
 
 server.tool(
@@ -140,12 +126,8 @@ server.tool(
     project_ids: z.array(z.string()).describe("Array of project IDs"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ project_ids }) => {
-    const result = await workspace.getProjectsByIds(project_ids);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_ids }) =>
+    runTool(() => workspace.getProjectsByIds(project_ids)),
 );
 
 // =============================================================================
@@ -182,12 +164,8 @@ server.tool(
       .describe("Array of task definitions"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ tasks: taskList }) => {
-    const result = await tasks.createTasksBatch(taskList);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ tasks: taskList }) =>
+    runTool(() => tasks.createTasksBatch(taskList)),
 );
 
 server.tool(
@@ -218,12 +196,7 @@ server.tool(
       .describe("Array of task updates"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ updates }) => {
-    const result = await tasks.updateTasksBatch(updates);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ updates }) => runTool(() => tasks.updateTasksBatch(updates)),
 );
 
 server.tool(
@@ -233,12 +206,7 @@ server.tool(
     task_ids: z.array(z.string()).describe("Array of task IDs to complete"),
   },
   { destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  async ({ task_ids }) => {
-    const result = await tasks.completeTasksBatch(task_ids);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_ids }) => runTool(() => tasks.completeTasksBatch(task_ids)),
 );
 
 server.tool(
@@ -248,12 +216,7 @@ server.tool(
     task_ids: z.array(z.string()).describe("Array of task IDs to reopen"),
   },
   { destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  async ({ task_ids }) => {
-    const result = await tasks.reopenTasksBatch(task_ids);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_ids }) => runTool(() => tasks.reopenTasksBatch(task_ids)),
 );
 
 server.tool(
@@ -272,12 +235,7 @@ server.tool(
       .describe("Array of move operations"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ moves }) => {
-    const result = await tasks.moveTasksBatch(moves);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ moves }) => runTool(() => tasks.moveTasksBatch(moves)),
 );
 
 server.tool(
@@ -295,12 +253,8 @@ server.tool(
       .describe("Array of section definitions"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ sections: sectionList }) => {
-    const result = await sections.createSectionsBatch(sectionList);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ sections: sectionList }) =>
+    runTool(() => sections.createSectionsBatch(sectionList)),
 );
 
 server.tool(
@@ -328,12 +282,8 @@ server.tool(
       .describe("Array of comment definitions"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ comments: commentList }) => {
-    const result = await comments.createCommentsBatch(commentList);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ comments: commentList }) =>
+    runTool(() => comments.createCommentsBatch(commentList)),
 );
 
 // =============================================================================
@@ -370,12 +320,7 @@ server.tool(
       .describe("Max results per page, 1-200 (disables auto-pagination)"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async (params) => {
-    const result = await tasks.listTasks(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => tasks.listTasks(params)),
 );
 
 server.tool(
@@ -385,12 +330,7 @@ server.tool(
     task_id: z.string().describe("The task ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ task_id }) => {
-    const result = await tasks.getTask(task_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id }) => runTool(() => tasks.getTask(task_id)),
 );
 
 server.tool(
@@ -446,12 +386,7 @@ server.tool(
       .describe("Duration unit"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await tasks.createTask(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => tasks.createTask(params)),
 );
 
 server.tool(
@@ -494,12 +429,8 @@ server.tool(
       .describe("New duration unit"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ task_id, ...params }) => {
-    const result = await tasks.updateTask(task_id, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id, ...params }) =>
+    runTool(() => tasks.updateTask(task_id, params)),
 );
 
 server.tool(
@@ -509,12 +440,7 @@ server.tool(
     task_id: z.string().describe("The task ID to complete"),
   },
   { destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  async ({ task_id }) => {
-    const result = await tasks.completeTask(task_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id }) => runTool(() => tasks.completeTask(task_id)),
 );
 
 server.tool(
@@ -524,12 +450,7 @@ server.tool(
     task_id: z.string().describe("The task ID to reopen"),
   },
   { destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  async ({ task_id }) => {
-    const result = await tasks.reopenTask(task_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id }) => runTool(() => tasks.reopenTask(task_id)),
 );
 
 server.tool(
@@ -539,12 +460,7 @@ server.tool(
     task_id: z.string().describe("The task ID to delete"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ task_id }) => {
-    const result = await tasks.deleteTask(task_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id }) => runTool(() => tasks.deleteTask(task_id)),
 );
 
 server.tool(
@@ -557,12 +473,7 @@ server.tool(
     parent_id: z.string().optional().describe("Target parent task ID"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await tasks.moveTask(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => tasks.moveTask(params)),
 );
 
 server.tool(
@@ -575,12 +486,8 @@ server.tool(
     label: z.string().optional().describe("Filter by label"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ query, ...params }) => {
-    const result = await tasks.searchTasks(query, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ query, ...params }) =>
+    runTool(() => tasks.searchTasks(query, params)),
 );
 
 // =============================================================================
@@ -592,12 +499,7 @@ server.tool(
   "List all projects. For full context, prefer todoist_get_workspace_overview instead.",
   {},
   { readOnlyHint: true, openWorldHint: true },
-  async () => {
-    const result = await projects.listProjects();
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async () => runTool(() => projects.listProjects()),
 );
 
 server.tool(
@@ -607,12 +509,7 @@ server.tool(
     project_id: z.string().describe("The project ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ project_id }) => {
-    const result = await projects.getProject(project_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_id }) => runTool(() => projects.getProject(project_id)),
 );
 
 server.tool(
@@ -629,12 +526,7 @@ server.tool(
     view_style: z.enum(["list", "board"]).optional().describe("Display style"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await projects.createProject(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => projects.createProject(params)),
 );
 
 server.tool(
@@ -648,12 +540,8 @@ server.tool(
     view_style: z.enum(["list", "board"]).optional().describe("Display style"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ project_id, ...params }) => {
-    const result = await projects.updateProject(project_id, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_id, ...params }) =>
+    runTool(() => projects.updateProject(project_id, params)),
 );
 
 server.tool(
@@ -663,12 +551,7 @@ server.tool(
     project_id: z.string().describe("The project ID to delete"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ project_id }) => {
-    const result = await projects.deleteProject(project_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_id }) => runTool(() => projects.deleteProject(project_id)),
 );
 
 // =============================================================================
@@ -682,12 +565,7 @@ server.tool(
     project_id: z.string().optional().describe("Filter by project ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ project_id }) => {
-    const result = await sections.listSections(project_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_id }) => runTool(() => sections.listSections(project_id)),
 );
 
 server.tool(
@@ -697,12 +575,7 @@ server.tool(
     section_id: z.string().describe("The section ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ section_id }) => {
-    const result = await sections.getSection(section_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ section_id }) => runTool(() => sections.getSection(section_id)),
 );
 
 server.tool(
@@ -714,12 +587,7 @@ server.tool(
     order: z.number().optional().describe("Section order"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await sections.createSection(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => sections.createSection(params)),
 );
 
 server.tool(
@@ -730,12 +598,8 @@ server.tool(
     name: z.string().describe("New section name"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ section_id, name }) => {
-    const result = await sections.updateSection(section_id, name);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ section_id, name }) =>
+    runTool(() => sections.updateSection(section_id, name)),
 );
 
 server.tool(
@@ -745,12 +609,7 @@ server.tool(
     section_id: z.string().describe("The section ID to delete"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ section_id }) => {
-    const result = await sections.deleteSection(section_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ section_id }) => runTool(() => sections.deleteSection(section_id)),
 );
 
 // =============================================================================
@@ -771,12 +630,7 @@ server.tool(
       .describe("Project ID (required if no task_id)"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async (params) => {
-    const result = await comments.listComments(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => comments.listComments(params)),
 );
 
 server.tool(
@@ -786,12 +640,7 @@ server.tool(
     comment_id: z.string().describe("The comment ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ comment_id }) => {
-    const result = await comments.getComment(comment_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ comment_id }) => runTool(() => comments.getComment(comment_id)),
 );
 
 server.tool(
@@ -821,12 +670,7 @@ server.tool(
       .describe("File attachment metadata"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await comments.createComment(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => comments.createComment(params)),
 );
 
 server.tool(
@@ -841,12 +685,8 @@ server.tool(
       .describe("Optional prefix tag"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ comment_id, ...params }) => {
-    const result = await comments.updateComment(comment_id, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ comment_id, ...params }) =>
+    runTool(() => comments.updateComment(comment_id, params)),
 );
 
 server.tool(
@@ -856,12 +696,7 @@ server.tool(
     comment_id: z.string().describe("The comment ID to delete"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ comment_id }) => {
-    const result = await comments.deleteComment(comment_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ comment_id }) => runTool(() => comments.deleteComment(comment_id)),
 );
 
 server.tool(
@@ -872,12 +707,8 @@ server.tool(
     research: z.string().describe("Research content (supports markdown)"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ task_id, research }) => {
-    const result = await comments.addResearchComment(task_id, research);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id, research }) =>
+    runTool(() => comments.addResearchComment(task_id, research)),
 );
 
 server.tool(
@@ -888,12 +719,8 @@ server.tool(
     context: z.string().describe("Context content (supports markdown)"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ task_id, context }) => {
-    const result = await comments.addContextComment(task_id, context);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id, context }) =>
+    runTool(() => comments.addContextComment(task_id, context)),
 );
 
 server.tool(
@@ -904,12 +731,8 @@ server.tool(
     prompt: z.string().describe("Prompt content (supports markdown)"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ task_id, prompt }) => {
-    const result = await comments.addPromptComment(task_id, prompt);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id, prompt }) =>
+    runTool(() => comments.addPromptComment(task_id, prompt)),
 );
 
 // =============================================================================
@@ -937,12 +760,7 @@ server.tool(
       .describe("Pagination cursor from previous response"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async (params) => {
-    const result = await completed.listCompletedTasks(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => completed.listCompletedTasks(params)),
 );
 
 server.tool(
@@ -952,12 +770,8 @@ server.tool(
     project_id: z.string().optional().describe("Filter by project ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ project_id }) => {
-    const result = await completed.getCompletedTaskStats(project_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ project_id }) =>
+    runTool(() => completed.getCompletedTaskStats(project_id)),
 );
 
 // =============================================================================
@@ -969,12 +783,7 @@ server.tool(
   "List all personal labels.",
   {},
   { readOnlyHint: true, openWorldHint: true },
-  async () => {
-    const result = await labels.listLabels();
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async () => runTool(() => labels.listLabels()),
 );
 
 server.tool(
@@ -984,12 +793,7 @@ server.tool(
     label_id: z.string().describe("The label ID"),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ label_id }) => {
-    const result = await labels.getLabel(label_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ label_id }) => runTool(() => labels.getLabel(label_id)),
 );
 
 server.tool(
@@ -1002,12 +806,7 @@ server.tool(
     is_favorite: z.boolean().optional().describe("Mark as favorite"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await labels.createLabel(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => labels.createLabel(params)),
 );
 
 server.tool(
@@ -1021,12 +820,8 @@ server.tool(
     is_favorite: z.boolean().optional().describe("Favorite status"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async ({ label_id, ...params }) => {
-    const result = await labels.updateLabel(label_id, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ label_id, ...params }) =>
+    runTool(() => labels.updateLabel(label_id, params)),
 );
 
 server.tool(
@@ -1036,12 +831,7 @@ server.tool(
     label_id: z.string().describe("The label ID to delete"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ label_id }) => {
-    const result = await labels.deleteLabel(label_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ label_id }) => runTool(() => labels.deleteLabel(label_id)),
 );
 
 // =============================================================================
@@ -1059,12 +849,7 @@ server.tool(
       ),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async ({ task_id }) => {
-    const result = await discovery.getTaskHierarchy(task_id);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ task_id }) => runTool(() => discovery.getTaskHierarchy(task_id)),
 );
 
 server.tool(
@@ -1087,12 +872,7 @@ server.tool(
       ),
   },
   { readOnlyHint: true, openWorldHint: true },
-  async (params) => {
-    const result = await discovery.findDuplicates(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => discovery.findDuplicates(params)),
 );
 
 // =============================================================================
@@ -1118,12 +898,7 @@ server.tool(
       .describe("Optional project to associate the upload with"),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await uploads.uploadFile(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => uploads.uploadFile(params)),
 );
 
 server.tool(
@@ -1135,12 +910,7 @@ server.tool(
       .describe("The file_url returned by todoist_upload_file"),
   },
   { destructiveHint: true, openWorldHint: true },
-  async ({ file_url }) => {
-    const result = await uploads.deleteUpload(file_url);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async ({ file_url }) => runTool(() => uploads.deleteUpload(file_url)),
 );
 
 server.tool(
@@ -1161,12 +931,7 @@ server.tool(
       .describe('Optional comment body (defaults to "Attached <file_name>")'),
   },
   { destructiveHint: false, openWorldHint: true },
-  async (params) => {
-    const result = await uploads.attachFileToTask(params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-    };
-  },
+  async (params) => runTool(() => uploads.attachFileToTask(params)),
 );
 
 async function main() {

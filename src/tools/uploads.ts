@@ -66,7 +66,7 @@ export async function attachFileToTask(
       file_path: params.file_path,
       file_name: params.file_name,
     });
-    if (!uploadResult.success || !uploadResult.data) {
+    if (!uploadResult.success) {
       return createResponse(false, undefined, uploadResult.error);
     }
     const upload = uploadResult.data;
@@ -81,7 +81,7 @@ export async function attachFileToTask(
       },
     });
 
-    if (!commentResult.success || !commentResult.data) {
+    if (!commentResult.success) {
       return createResponse(false, undefined, commentResult.error);
     }
 
