@@ -232,7 +232,7 @@ server.tool(
   {
     task_ids: z.array(z.string()).describe("Array of task IDs to complete"),
   },
-  { idempotentHint: true, openWorldHint: true },
+  { destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ task_ids }) => {
     const result = await tasks.completeTasksBatch(task_ids);
     return {
@@ -247,7 +247,7 @@ server.tool(
   {
     task_ids: z.array(z.string()).describe("Array of task IDs to reopen"),
   },
-  { idempotentHint: true, openWorldHint: true },
+  { destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ task_ids }) => {
     const result = await tasks.reopenTasksBatch(task_ids);
     return {
@@ -508,7 +508,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID to complete"),
   },
-  { idempotentHint: true, openWorldHint: true },
+  { destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.completeTask(task_id);
     return {
@@ -523,7 +523,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID to reopen"),
   },
-  { idempotentHint: true, openWorldHint: true },
+  { destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.reopenTask(task_id);
     return {
