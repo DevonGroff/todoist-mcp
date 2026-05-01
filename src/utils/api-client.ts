@@ -6,6 +6,15 @@ import axios, {
 
 const API_BASE = "https://api.todoist.com/api/v1";
 
+export class NotConfiguredError extends Error {
+  constructor() {
+    super(
+      "Todoist API token is not configured. Set the TODOIST_API_TOKEN environment variable with your API token from https://app.todoist.com/app/settings/integrations/developer",
+    );
+    this.name = "NotConfiguredError";
+  }
+}
+
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const MAX_PAGE_SIZE = 200;
@@ -15,7 +24,7 @@ class TodoistApiClient {
 
   constructor(apiToken: string) {
     if (!apiToken) {
-      throw new Error("TODOIST_API_TOKEN is required");
+      throw new NotConfiguredError();
     }
 
     this.client = axios.create({
@@ -142,7 +151,7 @@ export function getApiClient(): TodoistApiClient {
   if (!clientInstance) {
     const token = process.env.TODOIST_API_TOKEN;
     if (!token) {
-      throw new Error("TODOIST_API_TOKEN environment variable is not set");
+      throw new NotConfiguredError();
     }
     clientInstance = new TodoistApiClient(token);
   }
@@ -178,6 +187,13 @@ export function handleApiError(error: unknown): {
   }
 
   if (error instanceof Error) {
+    if (error instanceof NotConfiguredError) {
+      return {
+        code: "NOT_CONFIGURED",
+        message: error.message,
+      };
+    }
+
     return {
       code: "INTERNAL_ERROR",
       message: error.message,

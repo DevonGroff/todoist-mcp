@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createResponse, handleApiError } from "../src/utils/api-client.js";
+import {
+  createResponse,
+  handleApiError,
+  NotConfiguredError,
+} from "../src/utils/api-client.js";
 
 describe("createResponse", () => {
   it("wraps successful tool data consistently", () => {
@@ -49,6 +53,12 @@ describe("handleApiError", () => {
       code: "INTERNAL_ERROR",
       message: "Network unavailable",
     });
+  });
+
+  it("returns NOT_CONFIGURED for missing API token", () => {
+    const result = handleApiError(new NotConfiguredError());
+    expect(result.code).toBe("NOT_CONFIGURED");
+    expect(result.message).toContain("TODOIST_API_TOKEN");
   });
 
   it("returns a safe fallback for unknown thrown values", () => {

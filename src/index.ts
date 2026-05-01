@@ -13,10 +13,21 @@ import * as workspace from "./tools/workspace.js";
 import * as discovery from "./tools/discovery.js";
 import * as uploads from "./tools/uploads.js";
 
-const server = new McpServer({
-  name: "todoist-mcp",
-  version: "1.0.0",
-});
+const server = new McpServer(
+  {
+    name: "todoist-mcp",
+    version: "1.0.0",
+  },
+  {
+    instructions: [
+      "Start with todoist_get_workspace_overview to understand the workspace before other operations.",
+      "Prefer batch tools (todoist_*_batch) for multi-item operations instead of calling single-item tools repeatedly.",
+      "Use todoist_create_task_with_context instead of manually creating projects/sections first — it finds or creates them automatically.",
+      "All tools return { success, data?, error? }. Check success before using data.",
+      "If a tool returns error code NOT_CONFIGURED, the TODOIST_API_TOKEN environment variable is missing.",
+    ].join(" "),
+  },
+);
 
 // =============================================================================
 // EFFICIENCY TOOLS - Use these first to minimize API calls
@@ -31,6 +42,7 @@ server.tool(
       .optional()
       .describe("Optional: limit to specific project"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async (params) => {
     const result = await workspace.getWorkspaceOverview(params);
     return {
@@ -66,6 +78,7 @@ server.tool(
     due_string: z.string().optional().describe("Natural language due date"),
     due_date: z.string().optional().describe("Due date YYYY-MM-DD"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await workspace.createTaskWithContext(params);
     return {
@@ -111,6 +124,7 @@ server.tool(
       .optional()
       .describe("Copy labels from completed task"),
   },
+  { destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async (params) => {
     const result = await workspace.completeAndCreateFollowup(params);
     return {
@@ -125,6 +139,7 @@ server.tool(
   {
     project_ids: z.array(z.string()).describe("Array of project IDs"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ project_ids }) => {
     const result = await workspace.getProjectsByIds(project_ids);
     return {
@@ -166,6 +181,7 @@ server.tool(
       )
       .describe("Array of task definitions"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ tasks: taskList }) => {
     const result = await tasks.createTasksBatch(taskList);
     return {
@@ -201,6 +217,7 @@ server.tool(
       )
       .describe("Array of task updates"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ updates }) => {
     const result = await tasks.updateTasksBatch(updates);
     return {
@@ -215,6 +232,7 @@ server.tool(
   {
     task_ids: z.array(z.string()).describe("Array of task IDs to complete"),
   },
+  { idempotentHint: true, openWorldHint: true },
   async ({ task_ids }) => {
     const result = await tasks.completeTasksBatch(task_ids);
     return {
@@ -229,6 +247,7 @@ server.tool(
   {
     task_ids: z.array(z.string()).describe("Array of task IDs to reopen"),
   },
+  { idempotentHint: true, openWorldHint: true },
   async ({ task_ids }) => {
     const result = await tasks.reopenTasksBatch(task_ids);
     return {
@@ -252,6 +271,7 @@ server.tool(
       )
       .describe("Array of move operations"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ moves }) => {
     const result = await tasks.moveTasksBatch(moves);
     return {
@@ -274,6 +294,7 @@ server.tool(
       )
       .describe("Array of section definitions"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ sections: sectionList }) => {
     const result = await sections.createSectionsBatch(sectionList);
     return {
@@ -306,6 +327,7 @@ server.tool(
       )
       .describe("Array of comment definitions"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ comments: commentList }) => {
     const result = await comments.createCommentsBatch(commentList);
     return {
@@ -347,6 +369,7 @@ server.tool(
       .optional()
       .describe("Max results per page, 1-200 (disables auto-pagination)"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async (params) => {
     const result = await tasks.listTasks(params);
     return {
@@ -361,6 +384,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.getTask(task_id);
     return {
@@ -421,6 +445,7 @@ server.tool(
       .optional()
       .describe("Duration unit"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await tasks.createTask(params);
     return {
@@ -468,6 +493,7 @@ server.tool(
       .optional()
       .describe("New duration unit"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ task_id, ...params }) => {
     const result = await tasks.updateTask(task_id, params);
     return {
@@ -482,6 +508,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID to complete"),
   },
+  { idempotentHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.completeTask(task_id);
     return {
@@ -496,6 +523,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID to reopen"),
   },
+  { idempotentHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.reopenTask(task_id);
     return {
@@ -510,6 +538,7 @@ server.tool(
   {
     task_id: z.string().describe("The task ID to delete"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await tasks.deleteTask(task_id);
     return {
@@ -527,6 +556,7 @@ server.tool(
     section_id: z.string().optional().describe("Target section ID"),
     parent_id: z.string().optional().describe("Target parent task ID"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await tasks.moveTask(params);
     return {
@@ -544,6 +574,7 @@ server.tool(
     section_id: z.string().optional().describe("Limit search to section"),
     label: z.string().optional().describe("Filter by label"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ query, ...params }) => {
     const result = await tasks.searchTasks(query, params);
     return {
@@ -560,6 +591,7 @@ server.tool(
   "todoist_list_projects",
   "List all projects. For full context, prefer todoist_get_workspace_overview instead.",
   {},
+  { readOnlyHint: true, openWorldHint: true },
   async () => {
     const result = await projects.listProjects();
     return {
@@ -574,6 +606,7 @@ server.tool(
   {
     project_id: z.string().describe("The project ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ project_id }) => {
     const result = await projects.getProject(project_id);
     return {
@@ -595,6 +628,7 @@ server.tool(
     is_favorite: z.boolean().optional().describe("Mark as favorite"),
     view_style: z.enum(["list", "board"]).optional().describe("Display style"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await projects.createProject(params);
     return {
@@ -613,6 +647,7 @@ server.tool(
     is_favorite: z.boolean().optional().describe("Favorite status"),
     view_style: z.enum(["list", "board"]).optional().describe("Display style"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ project_id, ...params }) => {
     const result = await projects.updateProject(project_id, params);
     return {
@@ -627,6 +662,7 @@ server.tool(
   {
     project_id: z.string().describe("The project ID to delete"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ project_id }) => {
     const result = await projects.deleteProject(project_id);
     return {
@@ -645,6 +681,7 @@ server.tool(
   {
     project_id: z.string().optional().describe("Filter by project ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ project_id }) => {
     const result = await sections.listSections(project_id);
     return {
@@ -659,6 +696,7 @@ server.tool(
   {
     section_id: z.string().describe("The section ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ section_id }) => {
     const result = await sections.getSection(section_id);
     return {
@@ -675,6 +713,7 @@ server.tool(
     project_id: z.string().describe("Project ID"),
     order: z.number().optional().describe("Section order"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await sections.createSection(params);
     return {
@@ -690,6 +729,7 @@ server.tool(
     section_id: z.string().describe("The section ID to update"),
     name: z.string().describe("New section name"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ section_id, name }) => {
     const result = await sections.updateSection(section_id, name);
     return {
@@ -704,6 +744,7 @@ server.tool(
   {
     section_id: z.string().describe("The section ID to delete"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ section_id }) => {
     const result = await sections.deleteSection(section_id);
     return {
@@ -729,6 +770,7 @@ server.tool(
       .optional()
       .describe("Project ID (required if no task_id)"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async (params) => {
     const result = await comments.listComments(params);
     return {
@@ -743,6 +785,7 @@ server.tool(
   {
     comment_id: z.string().describe("The comment ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ comment_id }) => {
     const result = await comments.getComment(comment_id);
     return {
@@ -777,6 +820,7 @@ server.tool(
       .optional()
       .describe("File attachment metadata"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await comments.createComment(params);
     return {
@@ -796,6 +840,7 @@ server.tool(
       .optional()
       .describe("Optional prefix tag"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ comment_id, ...params }) => {
     const result = await comments.updateComment(comment_id, params);
     return {
@@ -810,6 +855,7 @@ server.tool(
   {
     comment_id: z.string().describe("The comment ID to delete"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ comment_id }) => {
     const result = await comments.deleteComment(comment_id);
     return {
@@ -825,6 +871,7 @@ server.tool(
     task_id: z.string().describe("The task ID"),
     research: z.string().describe("Research content (supports markdown)"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ task_id, research }) => {
     const result = await comments.addResearchComment(task_id, research);
     return {
@@ -840,8 +887,25 @@ server.tool(
     task_id: z.string().describe("The task ID"),
     context: z.string().describe("Context content (supports markdown)"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ task_id, context }) => {
     const result = await comments.addContextComment(task_id, context);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "todoist_add_prompt_comment",
+  "Add a prompt to a task (prefixed with [Prompt])",
+  {
+    task_id: z.string().describe("The task ID"),
+    prompt: z.string().describe("Prompt content (supports markdown)"),
+  },
+  { destructiveHint: false, openWorldHint: true },
+  async ({ task_id, prompt }) => {
+    const result = await comments.addPromptComment(task_id, prompt);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };
@@ -872,6 +936,7 @@ server.tool(
       .optional()
       .describe("Pagination cursor from previous response"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async (params) => {
     const result = await completed.listCompletedTasks(params);
     return {
@@ -886,6 +951,7 @@ server.tool(
   {
     project_id: z.string().optional().describe("Filter by project ID"),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ project_id }) => {
     const result = await completed.getCompletedTaskStats(project_id);
     return {
@@ -902,8 +968,24 @@ server.tool(
   "todoist_list_labels",
   "List all personal labels.",
   {},
+  { readOnlyHint: true, openWorldHint: true },
   async () => {
     const result = await labels.listLabels();
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "todoist_get_label",
+  "Get a label",
+  {
+    label_id: z.string().describe("The label ID"),
+  },
+  { readOnlyHint: true, openWorldHint: true },
+  async ({ label_id }) => {
+    const result = await labels.getLabel(label_id);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };
@@ -919,6 +1001,7 @@ server.tool(
     order: z.number().optional().describe("Label order"),
     is_favorite: z.boolean().optional().describe("Mark as favorite"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await labels.createLabel(params);
     return {
@@ -937,6 +1020,7 @@ server.tool(
     order: z.number().optional().describe("New order"),
     is_favorite: z.boolean().optional().describe("Favorite status"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async ({ label_id, ...params }) => {
     const result = await labels.updateLabel(label_id, params);
     return {
@@ -951,6 +1035,7 @@ server.tool(
   {
     label_id: z.string().describe("The label ID to delete"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ label_id }) => {
     const result = await labels.deleteLabel(label_id);
     return {
@@ -973,6 +1058,7 @@ server.tool(
         "Task ID to get hierarchy for (will find root parent automatically)",
       ),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async ({ task_id }) => {
     const result = await discovery.getTaskHierarchy(task_id);
     return {
@@ -1000,6 +1086,7 @@ server.tool(
         "Limit search to a specific project ID. Omit to scan all tasks.",
       ),
   },
+  { readOnlyHint: true, openWorldHint: true },
   async (params) => {
     const result = await discovery.findDuplicates(params);
     return {
@@ -1030,6 +1117,7 @@ server.tool(
       .optional()
       .describe("Optional project to associate the upload with"),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await uploads.uploadFile(params);
     return {
@@ -1046,6 +1134,7 @@ server.tool(
       .string()
       .describe("The file_url returned by todoist_upload_file"),
   },
+  { destructiveHint: true, openWorldHint: true },
   async ({ file_url }) => {
     const result = await uploads.deleteUpload(file_url);
     return {
@@ -1071,6 +1160,7 @@ server.tool(
       .optional()
       .describe('Optional comment body (defaults to "Attached <file_name>")'),
   },
+  { destructiveHint: false, openWorldHint: true },
   async (params) => {
     const result = await uploads.attachFileToTask(params);
     return {
