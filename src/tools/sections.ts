@@ -1,21 +1,36 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { TodoistSection, ToolResponse, CreateSectionParams } from '../types/index.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type {
+  TodoistSection,
+  ToolResponse,
+  CreateSectionParams,
+} from "../types/index.js";
 
-export async function listSections(projectId?: string): Promise<ToolResponse<TodoistSection[]>> {
+export async function listSections(
+  projectId?: string,
+): Promise<ToolResponse<TodoistSection[]>> {
   try {
     const client = getApiClient();
     const params: Record<string, unknown> = {};
     if (projectId) {
       params.project_id = projectId;
     }
-    const results = await client.getAllPaginated<TodoistSection>('/sections', params);
+    const results = await client.getAllPaginated<TodoistSection>(
+      "/sections",
+      params,
+    );
     return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function getSection(sectionId: string): Promise<ToolResponse<TodoistSection>> {
+export async function getSection(
+  sectionId: string,
+): Promise<ToolResponse<TodoistSection>> {
   try {
     const client = getApiClient();
     const section = await client.get<TodoistSection>(`/sections/${sectionId}`);
@@ -25,10 +40,15 @@ export async function getSection(sectionId: string): Promise<ToolResponse<Todois
   }
 }
 
-export async function createSection(params: CreateSectionParams): Promise<ToolResponse<TodoistSection>> {
+export async function createSection(
+  params: CreateSectionParams,
+): Promise<ToolResponse<TodoistSection>> {
   try {
     const client = getApiClient();
-    const section = await client.post<TodoistSection>('/sections', params as unknown as Record<string, unknown>);
+    const section = await client.post<TodoistSection>(
+      "/sections",
+      params as unknown as Record<string, unknown>,
+    );
     return createResponse(true, section);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
@@ -37,18 +57,23 @@ export async function createSection(params: CreateSectionParams): Promise<ToolRe
 
 export async function updateSection(
   sectionId: string,
-  name: string
+  name: string,
 ): Promise<ToolResponse<TodoistSection>> {
   try {
     const client = getApiClient();
-    const section = await client.post<TodoistSection>(`/sections/${sectionId}`, { name });
+    const section = await client.post<TodoistSection>(
+      `/sections/${sectionId}`,
+      { name },
+    );
     return createResponse(true, section);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function deleteSection(sectionId: string): Promise<ToolResponse<{ deleted: boolean }>> {
+export async function deleteSection(
+  sectionId: string,
+): Promise<ToolResponse<{ deleted: boolean }>> {
   try {
     const client = getApiClient();
     await client.delete(`/sections/${sectionId}`);
@@ -59,13 +84,18 @@ export async function deleteSection(sectionId: string): Promise<ToolResponse<{ d
 }
 
 export async function createSectionsBatch(
-  sections: CreateSectionParams[]
-): Promise<ToolResponse<{
-  created: TodoistSection[];
-  failed: Array<{ index: number; error: { code: string; message: string } }>;
-}>> {
+  sections: CreateSectionParams[],
+): Promise<
+  ToolResponse<{
+    created: TodoistSection[];
+    failed: Array<{ index: number; error: { code: string; message: string } }>;
+  }>
+> {
   const created: TodoistSection[] = [];
-  const failed: Array<{ index: number; error: { code: string; message: string } }> = [];
+  const failed: Array<{
+    index: number;
+    error: { code: string; message: string };
+  }> = [];
 
   const createPromises = sections.map(async (params, index) => {
     try {
@@ -76,7 +106,7 @@ export async function createSectionsBatch(
         return {
           success: false,
           index,
-          error: result.error || { code: 'UNKNOWN', message: 'Unknown error' },
+          error: result.error || { code: "UNKNOWN", message: "Unknown error" },
         };
       }
     } catch (error) {
@@ -87,9 +117,9 @@ export async function createSectionsBatch(
   const outcomes = await Promise.all(createPromises);
 
   for (const outcome of outcomes) {
-    if (outcome.success && 'data' in outcome) {
+    if (outcome.success && "data" in outcome) {
       created.push(outcome.data as TodoistSection);
-    } else if ('error' in outcome) {
+    } else if ("error" in outcome) {
       failed.push({
         index: outcome.index,
         error: outcome.error as { code: string; message: string },

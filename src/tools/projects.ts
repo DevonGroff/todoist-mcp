@@ -1,17 +1,27 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { TodoistProject, ToolResponse, CreateProjectParams } from '../types/index.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type {
+  TodoistProject,
+  ToolResponse,
+  CreateProjectParams,
+} from "../types/index.js";
 
 export async function listProjects(): Promise<ToolResponse<TodoistProject[]>> {
   try {
     const client = getApiClient();
-    const results = await client.getAllPaginated<TodoistProject>('/projects');
+    const results = await client.getAllPaginated<TodoistProject>("/projects");
     return createResponse(true, results);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function getProject(projectId: string): Promise<ToolResponse<TodoistProject>> {
+export async function getProject(
+  projectId: string,
+): Promise<ToolResponse<TodoistProject>> {
   try {
     const client = getApiClient();
     const project = await client.get<TodoistProject>(`/projects/${projectId}`);
@@ -21,10 +31,15 @@ export async function getProject(projectId: string): Promise<ToolResponse<Todois
   }
 }
 
-export async function createProject(params: CreateProjectParams): Promise<ToolResponse<TodoistProject>> {
+export async function createProject(
+  params: CreateProjectParams,
+): Promise<ToolResponse<TodoistProject>> {
   try {
     const client = getApiClient();
-    const project = await client.post<TodoistProject>('/projects', params as unknown as Record<string, unknown>);
+    const project = await client.post<TodoistProject>(
+      "/projects",
+      params as unknown as Record<string, unknown>,
+    );
     return createResponse(true, project);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
@@ -33,18 +48,23 @@ export async function createProject(params: CreateProjectParams): Promise<ToolRe
 
 export async function updateProject(
   projectId: string,
-  params: Partial<Omit<CreateProjectParams, 'parent_id'>>
+  params: Partial<Omit<CreateProjectParams, "parent_id">>,
 ): Promise<ToolResponse<TodoistProject>> {
   try {
     const client = getApiClient();
-    const project = await client.post<TodoistProject>(`/projects/${projectId}`, params as unknown as Record<string, unknown>);
+    const project = await client.post<TodoistProject>(
+      `/projects/${projectId}`,
+      params as unknown as Record<string, unknown>,
+    );
     return createResponse(true, project);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function deleteProject(projectId: string): Promise<ToolResponse<{ deleted: boolean }>> {
+export async function deleteProject(
+  projectId: string,
+): Promise<ToolResponse<{ deleted: boolean }>> {
   try {
     const client = getApiClient();
     await client.delete(`/projects/${projectId}`);

@@ -1,5 +1,13 @@
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { TodoistTask, TodoistProject, ToolResponse } from '../types/index.js';
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type {
+  TodoistTask,
+  TodoistProject,
+  ToolResponse,
+} from "../types/index.js";
 
 // =============================================================================
 // Task Hierarchy
@@ -11,7 +19,7 @@ interface TaskNode {
   description: string;
   labels: string[];
   priority: number;
-  due: TodoistTask['due'];
+  due: TodoistTask["due"];
   checked: boolean;
   depth: number;
   children: TaskNode[];
@@ -26,15 +34,22 @@ interface TaskHierarchy {
   completion_percentage: number;
 }
 
-function buildTaskNode(task: TodoistTask, allTasks: TodoistTask[], depth: number): TaskNode {
+function buildTaskNode(
+  task: TodoistTask,
+  allTasks: TodoistTask[],
+  depth: number,
+): TaskNode {
   const children = allTasks
-    .filter(t => t.parent_id === task.id)
-    .map(child => buildTaskNode(child, allTasks, depth + 1));
+    .filter((t) => t.parent_id === task.id)
+    .map((child) => buildTaskNode(child, allTasks, depth + 1));
 
-  const subtaskCount = children.reduce((sum, c) => sum + 1 + c.subtask_count, 0);
+  const subtaskCount = children.reduce(
+    (sum, c) => sum + 1 + c.subtask_count,
+    0,
+  );
   const completedSubtaskCount = children.reduce(
     (sum, c) => sum + (c.checked ? 1 : 0) + c.completed_subtask_count,
-    0
+    0,
   );
 
   return {
@@ -52,7 +67,9 @@ function buildTaskNode(task: TodoistTask, allTasks: TodoistTask[], depth: number
   };
 }
 
-export async function getTaskHierarchy(taskId: string): Promise<ToolResponse<TaskHierarchy>> {
+export async function getTaskHierarchy(
+  taskId: string,
+): Promise<ToolResponse<TaskHierarchy>> {
   try {
     const client = getApiClient();
 
@@ -69,7 +86,7 @@ export async function getTaskHierarchy(taskId: string): Promise<ToolResponse<Tas
     }
 
     // Fetch all tasks in the same project to find descendants
-    const projectTasks = await client.getAllPaginated<TodoistTask>('/tasks', {
+    const projectTasks = await client.getAllPaginated<TodoistTask>("/tasks", {
       project_id: root.project_id,
     });
 
@@ -77,13 +94,15 @@ export async function getTaskHierarchy(taskId: string): Promise<ToolResponse<Tas
     const tree = buildTaskNode(root, projectTasks, 0);
 
     const totalTasks = 1 + tree.subtask_count;
-    const completedTasks = (tree.checked ? 1 : 0) + tree.completed_subtask_count;
+    const completedTasks =
+      (tree.checked ? 1 : 0) + tree.completed_subtask_count;
 
     return createResponse(true, {
       root: tree,
       total_tasks: totalTasks,
       completed_tasks: completedTasks,
-      completion_percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+      completion_percentage:
+        totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
     });
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
@@ -161,7 +180,10 @@ export async function findDuplicates(params: {
     const queryParams: Record<string, unknown> = {};
     if (params.project_id) queryParams.project_id = params.project_id;
 
-    const tasks = await client.getAllPaginated<TodoistTask>('/tasks', queryParams);
+    const tasks = await client.getAllPaginated<TodoistTask>(
+      "/tasks",
+      queryParams,
+    );
 
     if (tasks.length < 2) {
       return createResponse(true, {
@@ -173,11 +195,14 @@ export async function findDuplicates(params: {
     }
 
     // Build project name lookup
-    const projectIds = [...new Set(tasks.map(t => t.project_id))];
+    const projectIds = [...new Set(tasks.map((t) => t.project_id))];
     const projectNames = new Map<string, string>();
     try {
-      const projectPromises = projectIds.map(id =>
-        client.get<TodoistProject>(`/projects/${id}`).then(p => [id, p.name] as const).catch(() => [id, undefined] as const)
+      const projectPromises = projectIds.map((id) =>
+        client
+          .get<TodoistProject>(`/projects/${id}`)
+          .then((p) => [id, p.name] as const)
+          .catch(() => [id, undefined] as const),
       );
       const results = await Promise.all(projectPromises);
       for (const [id, name] of results) {
@@ -232,7 +257,10 @@ export async function findDuplicates(params: {
   }
 }
 
-function taskToDuplicate(task: TodoistTask, projectNames: Map<string, string>): DuplicateTask {
+function taskToDuplicate(
+  task: TodoistTask,
+  projectNames: Map<string, string>,
+): DuplicateTask {
   return {
     id: task.id,
     content: task.content,

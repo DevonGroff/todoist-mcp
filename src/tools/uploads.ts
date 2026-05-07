@@ -1,8 +1,16 @@
-import { readFile, stat } from 'node:fs/promises';
-import { basename } from 'node:path';
-import { getApiClient, createResponse, handleApiError } from '../utils/api-client.js';
-import type { TodoistUpload, TodoistComment, ToolResponse } from '../types/index.js';
-import { createComment } from './comments.js';
+import { readFile, stat } from "node:fs/promises";
+import { basename } from "node:path";
+import {
+  getApiClient,
+  createResponse,
+  handleApiError,
+} from "../utils/api-client.js";
+import type {
+  TodoistUpload,
+  TodoistComment,
+  ToolResponse,
+} from "../types/index.js";
+import { createComment } from "./comments.js";
 
 export interface UploadFileParams {
   file_path: string;
@@ -10,7 +18,9 @@ export interface UploadFileParams {
   project_id?: string;
 }
 
-export async function uploadFile(params: UploadFileParams): Promise<ToolResponse<TodoistUpload>> {
+export async function uploadFile(
+  params: UploadFileParams,
+): Promise<ToolResponse<TodoistUpload>> {
   try {
     await stat(params.file_path);
     const fileName = params.file_name || basename(params.file_path);
@@ -18,21 +28,23 @@ export async function uploadFile(params: UploadFileParams): Promise<ToolResponse
     const blob = new Blob([new Uint8Array(buf)]);
 
     const form = new FormData();
-    form.append('file', blob, fileName);
-    if (params.project_id) form.append('project_id', params.project_id);
+    form.append("file", blob, fileName);
+    if (params.project_id) form.append("project_id", params.project_id);
 
     const client = getApiClient();
-    const result = await client.postMultipart<TodoistUpload>('/uploads', form);
+    const result = await client.postMultipart<TodoistUpload>("/uploads", form);
     return createResponse(true, result);
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
   }
 }
 
-export async function deleteUpload(file_url: string): Promise<ToolResponse<{ deleted: boolean }>> {
+export async function deleteUpload(
+  file_url: string,
+): Promise<ToolResponse<{ deleted: boolean }>> {
   try {
     const client = getApiClient();
-    await client.delete('/uploads', { file_url });
+    await client.delete("/uploads", { file_url });
     return createResponse(true, { deleted: true });
   } catch (error) {
     return createResponse(false, undefined, handleApiError(error));
@@ -47,7 +59,7 @@ export interface AttachFileToTaskParams {
 }
 
 export async function attachFileToTask(
-  params: AttachFileToTaskParams
+  params: AttachFileToTaskParams,
 ): Promise<ToolResponse<{ upload: TodoistUpload; comment: TodoistComment }>> {
   try {
     const uploadResult = await uploadFile({
