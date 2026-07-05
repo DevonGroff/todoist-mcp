@@ -119,7 +119,8 @@ export async function quickAddTask(params: { text: string; note?: string; remind
   if (params.note) body.note = params.note;
   if (params.reminder) body.reminder = params.reminder;
   if (params.auto_reminder !== undefined) body.auto_reminder = params.auto_reminder;
-  return client.post<Raw>('/tasks/quick_add', body);
+  // Live path is /tasks/quick — the docs' /tasks/quick_add misroutes to the task-id route (verified 2026-07-05).
+  return client.post<Raw>('/tasks/quick', body);
 }
 
 // --- Authoritative comment count (note_count in list payloads is unreliable) ----------------------
