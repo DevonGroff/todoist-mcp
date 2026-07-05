@@ -44,6 +44,7 @@ import {
   listFilters, createFilter, updateFilter, deleteFilter,
   getActivity, listBackups, getUser, getProductivityStats, quickAddTask, countComments,
 } from './tools/extras.js';
+import { uploadFile, deleteUpload, attachFileToTask } from './tools/uploads.js';
 
 const PREFIX_ENUM = z.enum(['[Research]', '[Prompt]', '[Context]', '[Note]', '[Summary]', '']);
 
@@ -787,6 +788,38 @@ const defs: ToolDef[] = [
     description: 'Account info: plan status, timezone, karma, goals.',
     schema: {},
     handler: () => envelope(() => getUser()),
+  },
+
+  // ── Uploads / attachments (ported from upstream 2026-07-05) ─────────────────
+  {
+    name: 'todoist_upload_file',
+    tier: 'write',
+    description: 'Upload a local file to Todoist\'s CDN. Returns {file_url, file_name, file_type}. Feed into todoist_create_comment.attachment, or use todoist_attach_file_to_task for the common case.',
+    schema: {
+      file_path: z.string().describe('Absolute local path to the file to upload'),
+      file_name: z.string().optional().describe('Override filename shown in Todoist (defaults to basename)'),
+      project_id: z.string().optional(),
+    },
+    handler: (args) => uploadFile(args),
+  },
+  {
+    name: 'todoist_attach_file_to_task',
+    tier: 'write',
+    description: 'Upload a local file and attach it to a task in one call (upload → comment with attachment).',
+    schema: {
+      task_id: z.string(),
+      file_path: z.string().describe('Absolute local path to the file'),
+      file_name: z.string().optional(),
+      comment: z.string().optional().describe('Comment text (defaults to "Attached <name>")'),
+    },
+    handler: (args) => attachFileToTask(args),
+  },
+  {
+    name: 'todoist_delete_upload',
+    tier: 'destructive',
+    description: 'Delete a previously uploaded file from Todoist\'s CDN by file_url. Comments referencing it are not removed.',
+    schema: { file_url: z.string().describe('The file_url returned by todoist_upload_file') },
+    handler: ({ file_url }: any) => deleteUpload(file_url),
   },
 ];
 

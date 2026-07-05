@@ -58,7 +58,15 @@ export function registerAll(
       continue;
     }
     report.registered.push({ name: def.name, tier: def.tier });
-    server.tool(def.name, def.description, def.schema, async (args: any) => {
+    // Standard MCP annotations derived from the tier — declarative hints any client can build
+    // policy on (the official Doist server validated this pattern). Enforcement stays our own
+    // registration-filtering + hooks; these are hints, not the gate.
+    const annotations = {
+      readOnlyHint: def.tier === 'read',
+      destructiveHint: def.tier === 'destructive',
+      idempotentHint: def.tier === 'read' || def.tier === 'destructive',
+    };
+    server.tool(def.name, def.description, def.schema, annotations, async (args: any) => {
       let body: any;
       try {
         body = await def.handler(args);
