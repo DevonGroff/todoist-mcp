@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import { randomUUID } from 'node:crypto';
 
 const API_BASE = 'https://api.todoist.com/api/v1';
 
@@ -106,6 +107,28 @@ class TodoistApiClient {
   async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<T> {
     return this.withRetry(async () => {
       const response = await this.client.post<T>(endpoint, data);
+      return response.data;
+    });
+  }
+
+  /**
+   * Submit a batch of Sync API commands in ONE request (POST /api/v1/sync).
+   * Each command: { type, args, uuid?, temp_id? } — uuids are filled in when absent.
+   * Returns { sync_status, temp_id_mapping } so callers can map per-command results.
+   * This replaces N sequential REST calls for every *_batch tool (efficiency goal).
+   */
+  async syncCommands(
+    commands: Array<{ type: string; args: Record<string, unknown>; uuid?: string; temp_id?: string }>
+  ): Promise<{
+    sync_status: Record<string, unknown>;
+    temp_id_mapping: Record<string, string>;
+  }> {
+    const withIds = commands.map(c => ({
+      ...c,
+      uuid: c.uuid ?? randomUUID(),
+    }));
+    return this.withRetry(async () => {
+      const response = await this.client.post('/sync', { commands: withIds });
       return response.data;
     });
   }
